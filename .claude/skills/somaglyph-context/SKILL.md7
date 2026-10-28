@@ -1,0 +1,415 @@
+BIAFYT Context
+Purpose
+
+This skill defines the mandatory context-recovery procedure for non-trivial
+BIAFYT work.
+
+Its purpose is to prevent implementation based on stale documentation,
+assumptions, incomplete context, frontend mocks, planned features, or invented
+business rules.
+
+This skill does not define business rules itself. Business/domain rules
+belong in BIAFYT_BUSINESS_CORE.md.
+
+This skill does not replace PROJECT_STATE.md, application-specific
+CLAUDE.md files, or the actual code and tests.
+
+When to use this skill
+
+Use this skill before:
+
+starting a new product phase;
+implementing a feature that crosses domains or applications;
+changing business/domain behavior;
+changing backend/frontend contracts;
+changing ownership, permissions, roles, consent, or authorization;
+changing points, streaks, duels, ranking, rewards, programs, workouts,
+Coach, Gym, or other core domain behavior;
+making architectural decisions;
+resolving an apparent contradiction between documentation and code;
+continuing work from a previous phase when the current state is not already
+established in the conversation.
+
+For small, isolated changes with obvious scope, do not perform unnecessary
+context work. Follow the root CLAUDE.md and the applicable local
+CLAUDE.md.
+
+Mandatory context order
+
+For non-trivial work, recover context in this order:
+
+1. Business truth
+
+Read:
+
+BIAFYT_BUSINESS_CORE.md
+
+Determine:
+
+what BIAFYT means as a product;
+the business/domain concepts involved;
+the responsibilities of Usuario/Cliente, Coach, and Gym;
+cross-application relationships;
+approved business rules;
+decisions already made;
+decisions explicitly deferred;
+constraints and boundaries that must not be violated.
+
+Do not reinterpret an existing business decision without explicit approval.
+
+2. Current project state
+
+Read:
+
+PROJECT_STATE.md
+
+Determine:
+
+current phase;
+completed phases;
+current implementation status;
+roadmap;
+known technical debt;
+protected files;
+known repository anomalies;
+backend/frontend integration status;
+what is implemented, mocked, shadowed, deferred, or absent.
+
+Do not treat the roadmap as implementation.
+
+Do not treat documentation saying that something exists as proof that it
+exists in code.
+
+3. Repository rules
+
+Read:
+
+CLAUDE.md
+
+Then read the applicable application-specific guidance:
+
+backend/CLAUDE.md
+frontend-usuario/CLAUDE.md
+frontend-couch/CLAUDE.md
+frontend-gym/CLAUDE.md
+
+Only read the files relevant to the requested scope when the task is clearly
+isolated.
+
+4. Actual implementation
+
+Inspect the relevant:
+
+source code;
+routes;
+controllers;
+models;
+migrations;
+requests/validation;
+API clients;
+state management;
+components/screens;
+tests;
+fixtures or mock data;
+configuration where relevant.
+
+The actual code and tests determine what the system does today.
+
+Source-of-truth hierarchy
+
+Use the following hierarchy according to the question being answered.
+
+What should the product mean?
+
+Primary authority:
+
+BIAFYT_BUSINESS_CORE.md
+
+What has been decided but not necessarily implemented?
+
+Primary authority:
+
+BIAFYT_BUSINESS_CORE.md + PROJECT_STATE.md
+
+What is supposed to be worked on next?
+
+Primary authority:
+
+PROJECT_STATE.md
+
+What does the system actually do today?
+
+Primary authority:
+
+actual code + tests.
+
+Documentation is supporting evidence only.
+
+How should work be performed?
+
+Primary authority:
+
+CLAUDE.md and the applicable application-specific CLAUDE.md.
+
+Business decision vs implementation status
+
+Always distinguish these states.
+
+A concept may be:
+
+decided but not implemented;
+documented but not implemented;
+partially implemented;
+implemented only in frontend;
+implemented only in backend;
+implemented as a mock;
+implemented as a local-only behavior;
+implemented as a best-effort shadow write;
+implemented but not authoritative;
+explicitly deferred;
+absent.
+
+Never collapse these states into "implemented".
+
+For example, a backend model, endpoint, or database table does not prove that
+the frontend consumes it.
+
+Likewise, a frontend mock, LocalStorage value, or UI screen does not prove
+that the backend domain supports it.
+
+Cross-application model
+
+BIAFYT is one product with three distinct application surfaces:
+
+Usuario/Cliente
+Coach
+Gym
+
+They share a business domain but have different responsibilities,
+permissions, and workflows.
+
+Do not assume that behavior implemented in one application is authoritative
+for the entire product.
+
+Business rules that cross application boundaries belong to:
+
+BIAFYT_BUSINESS_CORE.md
+
+Application-specific implementation rules belong in the corresponding
+CLAUDE.md.
+
+Anti-hallucination rules
+
+Never:
+
+invent a missing business rule;
+invent an endpoint;
+invent a model or database field;
+invent a role or permission;
+invent an authorization relationship;
+invent a frontend/backend integration;
+assume a mock represents real backend data;
+assume a backend model has a frontend consumer;
+assume a frontend feature has backend persistence;
+assume LocalStorage state is backend-authoritative;
+assume a roadmap item is implemented;
+assume a planned phase has started;
+migrate behavior simply because documentation says it should eventually
+migrate;
+silently change domain terminology;
+silently resolve contradictory business decisions;
+silently promote a local or shadow implementation to an authoritative one.
+
+If information is missing, say that it is missing.
+
+If a business rule is ambiguous, stop and request a decision.
+
+If implementation status is unclear, inspect the code and tests before
+concluding.
+
+Contradiction protocol
+
+When sources disagree, classify the contradiction before acting.
+
+Case A — Business Core vs implementation
+
+Example:
+
+Business Core says a rule should exist, but code does not implement it.
+
+Conclusion:
+
+the business decision exists;
+the implementation is missing.
+
+Do not implement it unless the current task explicitly authorizes the
+implementation.
+
+Case B — Business Core vs PROJECT_STATE
+
+Example:
+
+Business Core says a feature is decided, while PROJECT_STATE says it is
+deferred.
+
+Conclusion:
+
+the business decision remains valid;
+the implementation is deferred.
+
+Do not implement it early.
+
+Case C — PROJECT_STATE vs code
+
+Example:
+
+PROJECT_STATE says a feature exists, but the code does not contain it.
+
+Conclusion:
+
+treat the feature as not currently implemented;
+report the documentation drift;
+do not assume the missing implementation.
+Case D — CLAUDE.md vs code
+
+When determining actual behavior:
+
+code and tests win.
+
+When determining how work should be performed:
+
+applicable CLAUDE.md rules apply unless they contradict a higher-level
+business decision or explicit task instruction.
+Case E — Business rule is genuinely ambiguous
+
+Stop.
+
+Do not choose the "most reasonable" interpretation silently.
+
+Report:
+
+the ambiguity;
+the relevant Business Core section;
+the competing interpretations;
+what implementation would differ depending on the decision.
+
+Wait for an explicit decision.
+
+Phase boundary rule
+
+A decision being recorded for a future phase does not authorize implementing
+it now.
+
+Before changing code, identify:
+
+the current phase;
+the requested scope;
+the business decision supporting the change;
+whether that decision is approved for the current phase;
+affected applications;
+affected backend domains;
+affected contracts;
+protected files;
+required QA.
+
+If the requested implementation belongs to a later phase, stop and report the
+phase-boundary conflict.
+
+Discovery output
+
+For a non-trivial phase or feature, the context-recovery result should be
+summarized before implementation.
+
+Use this compact structure:
+
+Business intent
+
+What the Business Core says the product should do.
+
+Current reality
+
+What the code and tests actually do.
+
+Gap
+
+What is missing or inconsistent.
+
+Scope
+
+What the current task explicitly allows changing.
+
+Dependencies
+
+What must exist or be decided first.
+
+Risks / contradictions
+
+Any unresolved issue that could change the implementation.
+
+Decision gate
+
+State one of:
+
+READY TO IMPLEMENT
+READY WITH EXPLICIT CONSTRAINTS
+BLOCKED — BUSINESS DECISION REQUIRED
+BLOCKED — TECHNICAL DEPENDENCY
+BLOCKED — SCOPE/PHASE CONFLICT
+
+Do not begin implementation while the decision gate is blocked.
+
+Phase integrity
+
+During a phase:
+
+do not opportunistically implement future roadmap items;
+do not "clean up" unrelated architecture;
+do not convert mocks into real integrations unless explicitly requested;
+do not migrate LocalStorage state to backend authority unless the phase
+explicitly authorizes the authority change;
+do not add endpoints, migrations, models, or schema changes outside the
+approved scope;
+do not modify protected files without explicit authorization;
+do not touch known legacy repository artifacts when the phase excludes them.
+
+If a useful improvement is discovered but is outside the current phase,
+document it and leave it untouched.
+
+Completion check
+
+Before declaring a non-trivial task complete, verify:
+
+The implementation matches the approved business decision.
+No deferred decision was implemented early.
+No business rule was invented.
+No mock was accidentally treated as authoritative.
+No frontend/backend authority boundary was changed unintentionally.
+Relevant tests were executed.
+Documentation was updated only when within scope.
+The final state is consistent with PROJECT_STATE.md.
+Any remaining contradiction or uncertainty is explicitly reported.
+
+The objective is not merely to make the code pass tests.
+
+The objective is to keep BIAFYT's business model, implementation, and
+project state synchronized without silently changing product decisions.
+
+## Phase boundary: technical foundations
+
+A future-phase product may have a technical or visual foundation created
+before its product phase, but only when explicitly authorized.
+
+Do not confuse:
+- technical/UI scaffolding, and
+- business/product implementation.
+
+A UI foundation may include application structure, visual system adaptation,
+layout primitives, routing scaffolding and non-domain states.
+
+It must not introduce future-phase business semantics, permissions, domain
+models, persistence, endpoints, integrations or workflows.
+
+When a task explicitly says it is a technical/UI foundation and the requested
+work does not implement deferred business behavior, evaluate the task on its
+actual scope rather than automatically treating it as implementation of the
+future product phase.

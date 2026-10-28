@@ -1,0 +1,83 @@
+/* BIAFYT — BASE
+   Los colores llegan como variables desde src/theme/colors.js.
+   Los valores de reserva solo aplican durante el primer frame. */
+
+:root {
+  --c-background: #0a1a1f;
+  --c-text: #dcefed;
+  --c-primary: #65cdbd;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--c-background);
+  background-image:
+    radial-gradient(90% 60% at 78% -8%, rgba(101, 205, 189, 0.16), transparent 62%),
+    radial-gradient(70% 48% at 6% 4%, rgba(101, 205, 189, 0.08), transparent 58%),
+    linear-gradient(180deg, #112b32 0%, #0a1a1f 46%, #081418 100%);
+  background-attachment: fixed;
+  color: var(--c-text);
+  font-family: var(--t-font-body, system-ui, -apple-system, sans-serif);
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+h1 {
+  font-size: 1.7rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+h2 {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+h3 {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+strong {
+  font-weight: 600;
+}
+
+p {
+  margin: 0.25rem 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+ul {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+}

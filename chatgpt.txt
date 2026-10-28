@@ -1,0 +1,315 @@
+Quiero continuar una conversación sobre mi proyecto BIAFYT. Soy desarrollador fullstack semi-senior y estoy aprendiendo a trabajar con Claude Code de forma profesional, usando Skills y Agents.
+
+CONTEXTO DEL PROYECTO
+- Proyecto: BIAFYT, una app fitness.
+- Stack principal: React/JSX.
+- El proyecto usa .claude/ para configurar Claude Code.
+- Quiero trabajar con cambios pequeños, verificables y evitando sobreingeniería.
+
+ESTRUCTURA DE SKILLS QUE CREAMOS
+.claude/skills/
+├── investigate/
+├── implement/
+├── review/
+├── fitness-review/
+├── ui-review/
+├── architecture-review/
+└── code-review/
+
+También existen otras skills/utilidades de Claude Code disponibles como design, dataviz, simplify, security-review, run, etc.
+
+Las skills tienen SKILL.md con frontmatter YAML, por ejemplo:
+---
+name: investigate
+description: ...
+---
+
+IMPORTANTE:
+Inicialmente fitness-review no era reconocido porque estaba en claude/skills/.
+Lo corregimos a:
+.claude/skills/fitness-review/SKILL.md
+
+Los skills ya están correctamente estructurados.
+
+AGENTS
+También creamos agentes personalizados en:
+
+.claude/agents/
+├── architect.md
+├── fitness-engineer.md
+├── frontend-engineer.md
+├── qa-engineer.md
+└── reviewer.md
+
+Inicialmente NO funcionaban porque los archivos no tenían YAML frontmatter.
+Lo corregimos.
+
+Cada agente ahora tiene algo como:
+
+---
+name: architect
+description: ...
+---
+
+# BIAFYT Architect
+...
+
+Los agentes personalizados ya funcionan.
+
+IMPORTANTE: hicimos una prueba real con architect y funcionó:
+
+● architect(Localizar generación de rutina automática)
+Agent terminado correctamente.
+
+El agente encontró correctamente:
+- src/data/training.js
+- buildRoutine(focusId)
+- shape
+- catalog
+- AppContext.jsx
+- MyRoutines.jsx
+
+Además respetó "NO modificar archivos".
+
+Por tanto:
+- Skills funcionan.
+- Agents funcionan.
+- architect fue probado correctamente.
+- No necesitamos seguir haciendo pruebas artificiales porque queremos ahorrar tokens.
+
+ARQUITECTURA DE ENTRENAMIENTO ACTUAL
+
+La rutina automática se genera en:
+
+src/data/training.js
+
+Principalmente:
+
+buildRoutine(focusId)
+
+Combina:
+- focuses
+- shape
+- catalog
+
+y devuelve aproximadamente:
+
+{
+  focusId,
+  name,
+  exercises: [...]
+}
+
+El generador actualmente solo utiliza focusId.
+
+AppContext.jsx:
+- deriva la rutina automática mediante buildRoutine(...)
+- usa customRoutine/activeRoutine cuando corresponde.
+
+MyRoutines.jsx:
+- también llama directamente a buildRoutine() para mostrar la rutina automática.
+
+Workout.jsx:
+- consume routine.exercises
+- espera una estructura plana de ejercicios.
+
+PROBLEMAS FITNESS YA INVESTIGADOS
+
+Detectamos:
+
+1. No hay personalización real por nivel.
+   profile.level existe pero buildRoutine no lo usa.
+
+2. No existe programación semanal real.
+   schedule.days existe, pero no se usa para generar un programa.
+
+3. El volumen es fijo por objetivo.
+   No depende del usuario ni de frecuencia.
+
+4. No existe intensidad real.
+   No hay kg, RPE ni %1RM.
+
+5. No existe progresión.
+   activities[] no guarda rendimiento por ejercicio/carga suficiente para progresar.
+
+6. El catálogo usa nombres libres.
+   training.js tiene catalog[] separado de machines.js.
+
+7. Hay incoherencias de prescripción:
+   - Cinta de correr recibe reps.
+   - Plancha recibe reps.
+   - Plancha lateral recibe reps.
+   - Salto al cajón usa el mismo esquema que ejercicios de fuerza.
+
+8. Descanso uniforme por enfoque, no por ejercicio.
+
+9. Algunos ejercicios de training.js existen también en machines.js, pero machines.js NO es un catálogo completo:
+   machines.js representa específicamente máquinas de gimnasio.
+   training.js también tiene barra libre, peso corporal, cardio, movilidad, etc.
+
+10. Las customRoutines existentes guardan nombres, no necesariamente IDs de catálogo, por lo que cualquier catálogo unificado debe mantener compatibilidad.
+
+DISEÑO CONCEPTUAL QUE INVESTIGAMOS
+
+Llegamos a la conclusión de que hay que separar:
+
+1. Perfil de entrenamiento
+   - focus
+   - level
+   - frecuencia deseada
+
+2. Calendario
+   - schedule.days
+   - días reales de la semana
+
+3. Programa
+   - N sesiones abstractas:
+     Día 1
+     Día 2
+     Día 3
+     ...
+
+4. Resolución diaria
+   - determina qué sesión corresponde HOY.
+
+La distinción importante es:
+
+"weekday" != "día de entrenamiento"
+
+Por ejemplo:
+- lunes no debería significar automáticamente Día 1.
+- Día 1 es una posición dentro del microciclo.
+- schedule.days determina cuándo se ejecuta esa posición.
+
+También concluimos que el programa automático puede ser derivado y no necesariamente persistido.
+
+Para una futura evolución se propuso inicialmente una alternativa C:
+buildRoutine(focusId, { level, weekday })
+
+pero después concluimos que eso mezcla demasiado weekday con día de entrenamiento.
+
+El diseño conceptual correcto sería una capa de programa semanal + una resolución diaria.
+
+También detectamos que los duelos deberían congelar una copia de la rutina utilizada, en vez de depender de una rutina derivada que pueda cambiar posteriormente.
+
+CATÁLOGO DE EJERCICIOS
+
+Investigamos machines.js y training.js.
+
+machines.js contiene máquinas con metadata:
+- id
+- name
+- art
+- purpose
+- primary
+- secondary
+- movement
+- level
+- tips
+- mistakes
+- related
+
+training.js usa nombres libres.
+
+Coincidencias entre ambos:
+- Press de pecho
+- Jalón al pecho
+- Press de hombro
+- Prensa de piernas
+- Curl femoral
+- Cinta de correr
+- Remo sentado
+- Hip thrust
+
+Pero machines.js NO contiene:
+- Sentadilla
+- Press banca
+- Peso muerto
+- Remo con barra
+- Press militar
+- Plancha
+- Sentadilla goblet
+- Zancadas
+- Movilidad
+- Salto al cajón
+etc.
+
+Por eso concluimos que NO conviene simplemente convertir machines.js en el catálogo universal.
+
+La idea conceptual futura es:
+- catálogo general de ejercicios
+- machines.js como subconjunto de ejercicios de tipo máquina
+- metadata común:
+  id, name, primary, movement, level, equipment/type, prescription unit
+- metadata específica de máquinas:
+  art, tips, mistakes, related
+
+Además:
+- definición de ejercicio ≠ instancia dentro de una rutina.
+- sets/reps/rest pertenecen a la instancia de rutina.
+- exerciseId debería ser opcional para mantener compatibilidad con customRoutines antiguas.
+
+FLUJO DE TRABAJO QUE QUEREMOS USAR
+
+Queremos trabajar profesionalmente con:
+
+investigate
+   ↓
+diseño/decisión
+   ↓
+implement
+   ↓
+review / QA
+
+Y usar Agents especializados:
+
+architect
+- arquitectura y flujo de datos
+
+fitness-engineer
+- programación de entrenamiento
+
+frontend-engineer
+- frontend/UI
+
+qa-engineer
+- verificación/regresiones
+
+reviewer
+- revisión general del código
+
+Los Agents representan "quién hace el trabajo".
+Las Skills representan "cómo debe hacerlo".
+
+ESTADO ACTUAL / SIGUIENTE TAREA
+
+La última cosa que íbamos a hacer era arreglar un bug REAL y pequeño:
+
+"El botón Cerrar del Coach no cierra el Coach."
+
+Para ahorrar tokens decidimos NO seguir haciendo pruebas artificiales de Agents.
+
+El prompt que íbamos a darle a Claude Code era esencialmente:
+
+"Quiero arreglar un bug pequeño.
+El botón Cerrar del Coach no está cerrando el panel/modal.
+Investiga dónde se renderiza el Coach y cómo se controla su estado.
+Identifica por qué el botón no funciona.
+Corrige únicamente ese problema.
+No hagas refactors ni cambios relacionados.
+Verifica que siga funcionando.
+Dime qué archivo modificaste, causa, cambio y verificación.
+Mantén el cambio mínimo."
+
+La idea es usar este bug real como primera prueba práctica del sistema que acabamos de construir.
+
+IMPORTANTE PARA CONTINUAR:
+- No quiero gastar tokens en pruebas innecesarias.
+- No quiero sobreingeniería.
+- Prefiero cambios pequeños y verificables.
+- Si hay que investigar antes de modificar, hacerlo.
+- No implementar cambios de arquitectura sin aprobación explícita.
+- Cuando una tarea sea pequeña, mantener el análisis pequeño.
+- Si Claude Code ya puede usar los Agents/Skills, aprovecharlos, pero sin lanzar agentes innecesariamente.
+
+Quiero continuar exactamente desde este punto.

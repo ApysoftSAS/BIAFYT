@@ -1,0 +1,610 @@
+/* =================================================================
+   BIAFYT GYM WEB — ESTILOS DE APLICACIÓN (foundation, navegador)
+
+   Sistema visual heredado de frontend-usuario:
+   - Tokens: src/theme/colors.js (copia verbatim).
+   - Reglas base de componentes (.card, .btn, .input, .field, .badge,
+     .stat, .empty, utilidades de texto/layout): extracción verbatim de
+     frontend-usuario/src/App.css.
+   - Shell de aplicación WEB (sidebar persistente + topbar + main con
+     mayor densidad, grids y tablas): diseño específico de navegador —
+     NO es la app móvil estirada. Misma identidad, distinta UX.
+
+   Sin hexadecimales: todo viene de las variables CSS (--c-*, --t-*).
+   ================================================================= */
+
+/* ---------------- CAPA LIQUID GLASS ---------------- */
+
+.glass,
+.card,
+.modal,
+.gym-sidebar,
+.gym-topbar,
+.icon-btn,
+.tab,
+.input {
+  background: var(--c-surface);
+  -webkit-backdrop-filter: blur(var(--t-glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--t-glass-blur)) saturate(150%);
+  border: 1px solid var(--c-border);
+  box-shadow: var(--t-glass-inner), var(--t-glass-shadow);
+}
+
+.card::before,
+.glass::before,
+.modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(160deg, var(--c-glass-highlight) 0%, transparent 38%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.card,
+.glass,
+.modal {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---------------- TEXTO / UTILIDADES ---------------- */
+
+.muted {
+  color: var(--c-text-secondary);
+  font-size: 0.88rem;
+}
+.micro {
+  color: var(--c-text-muted);
+  font-size: 0.7rem;
+  letter-spacing: var(--t-tracking-label);
+  text-transform: uppercase;
+  margin: 2px 0;
+}
+.center {
+  text-align: center;
+}
+.text-success {
+  color: var(--c-success);
+}
+.text-warning {
+  color: var(--c-warning);
+}
+.text-error {
+  color: var(--c-error);
+}
+.text-muted {
+  color: var(--c-text-muted);
+}
+.big-number {
+  font-size: 2.3rem;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+}
+.section-title {
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  color: var(--c-text-secondary);
+  text-transform: uppercase;
+}
+
+/* ---------------- ESTRUCTURA ---------------- */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.row-gap {
+  display: flex;
+  gap: 10px;
+}
+.divider {
+  height: 1px;
+  background: var(--c-border);
+  margin: 12px 0;
+}
+
+/* Grid de tarjetas/estadísticas que aprovecha el ancho de escritorio. */
+.gym-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+/* ---------------- CARDS ---------------- */
+
+.card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--t-radius-sm);
+  padding: 18px;
+  color: inherit;
+  font-size: 1rem;
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+button.card {
+  cursor: pointer;
+}
+button.card:hover {
+  border-color: var(--c-border-strong);
+}
+.card-accent {
+  background: var(--c-surface-inverse);
+  border-color: var(--c-surface-inverse);
+  color: var(--c-text-on-light);
+  box-shadow: var(--t-glass-shadow);
+}
+.card-accent::before {
+  opacity: 0;
+}
+.card-accent h2,
+.card-accent h3,
+.card-accent strong,
+.card-accent .stat-value {
+  color: var(--c-text-on-light);
+}
+.card-accent .stat-label,
+.card-accent .micro,
+.card-accent .muted {
+  color: rgba(17, 43, 50, 0.66);
+}
+.soft {
+  background: var(--c-surface-alt);
+}
+
+/* Bloque que deja claro que una pantalla/tabla es sólo andamiaje. */
+.placeholder-note {
+  border: 1px dashed var(--c-border-strong);
+  border-radius: var(--t-radius-sm);
+  padding: 12px 16px;
+  color: var(--c-text-muted);
+  font-size: 0.82rem;
+  background: var(--c-surface-alt);
+}
+
+/* ---------------- BOTONES ---------------- */
+
+.btn {
+  border: none;
+  border-radius: var(--t-radius-pill);
+  padding: 11px 20px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn:active {
+  transform: scale(0.99);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: linear-gradient(180deg, var(--c-primary), rgba(101, 205, 189, 0.82));
+  color: var(--c-cta-text);
+  box-shadow: var(--t-glow-ring), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.btn-ghost {
+  background: var(--c-surface);
+  -webkit-backdrop-filter: blur(var(--t-glass-blur));
+  backdrop-filter: blur(var(--t-glass-blur));
+  color: var(--c-text);
+  border: 1px solid var(--c-border-strong);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--c-error);
+  border: 1px solid var(--c-error);
+}
+.btn-full {
+  width: 100%;
+}
+
+.icon-btn {
+  color: var(--c-text);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--t-radius-pill);
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--c-primary);
+  font-size: 0.85rem;
+  padding: 4px;
+}
+
+/* ---------------- FORMULARIOS ---------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-text-secondary);
+}
+.field-hint {
+  font-size: 0.72rem;
+  color: var(--c-text-muted);
+}
+.input {
+  width: 100%;
+  border-radius: var(--t-radius-sm);
+  color: var(--c-text);
+  padding: 11px 13px;
+  font-size: 0.95rem;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: var(--t-glow-ring);
+}
+
+/* ---------------- BADGES / STAT ---------------- */
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--t-radius-pill);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  border: 1px solid var(--c-border-strong);
+  color: var(--c-text-secondary);
+}
+.badge-accent {
+  background: var(--c-primary);
+  color: var(--c-text-on-primary);
+  border-color: var(--c-primary);
+}
+.badge-success {
+  color: var(--c-success);
+  border-color: var(--c-success);
+}
+.badge-warning {
+  color: var(--c-warning);
+  border-color: var(--c-warning);
+}
+.badge-error {
+  color: var(--c-error);
+  border-color: var(--c-error);
+}
+
+.avatar {
+  border-radius: 50%;
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-value {
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+.stat-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-text-secondary);
+}
+
+/* ---------------- EMPTY ---------------- */
+
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--c-text-secondary);
+}
+.empty-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+/* ---------------- SHELL WEB (sidebar + topbar + main) ---------------- */
+
+.gym-shell {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+  min-height: 100vh;
+}
+
+.gym-sidebar {
+  grid-area: sidebar;
+  border-radius: 0;
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.gym-sidebar-brand {
+  padding: 4px 8px 18px;
+}
+.gym-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gym-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: var(--t-radius-sm);
+  background: none;
+  border: none;
+  color: var(--c-text-secondary);
+  font-size: 0.9rem;
+  text-align: left;
+  width: 100%;
+}
+.gym-nav-item:hover {
+  background: var(--c-surface-alt);
+  color: var(--c-text);
+}
+.gym-nav-item.gym-nav-active {
+  background: var(--c-surface-alt);
+  color: var(--c-primary);
+  border: 1px solid var(--c-border);
+}
+.gym-nav-item .gym-nav-icon {
+  font-size: 1.05rem;
+  width: 20px;
+  text-align: center;
+}
+.gym-nav-item[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.gym-sidebar-foot {
+  margin-top: auto;
+  padding: 12px 8px 0;
+  color: var(--c-text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+.gym-topbar {
+  grid-area: topbar;
+  border-radius: 0;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 28px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.gym-topbar h1 {
+  font-size: 1.15rem;
+}
+.gym-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--c-text-secondary);
+  font-size: 0.85rem;
+}
+
+.gym-main {
+  grid-area: main;
+  padding: 28px;
+  max-width: 1160px;
+  width: 100%;
+}
+.gym-main-head {
+  margin-bottom: 20px;
+}
+.gym-main-head p {
+  color: var(--c-text-secondary);
+  font-size: 0.85rem;
+}
+
+/* ---------------- TABLA (placeholder / futura) ---------------- */
+
+.gym-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--t-radius-sm);
+}
+.gym-table {
+  min-width: 520px;
+  font-size: 0.88rem;
+}
+.gym-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-secondary);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--c-border);
+}
+.gym-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--c-border);
+  color: var(--c-text-secondary);
+}
+.gym-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------------- ACCESO (login web, centrado) ---------------- */
+
+.gym-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+.gym-auth-card {
+  width: 100%;
+  max-width: 380px;
+  border-radius: var(--t-radius);
+  padding: 32px 28px;
+  text-align: center;
+}
+.gym-auth-card .brand-mark {
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-strong);
+  box-shadow: var(--t-glow-ring), var(--t-glass-inner);
+}
+.gym-auth-card h1 {
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: var(--t-tracking-label);
+}
+.gym-auth-card .brand-sub {
+  color: var(--c-primary);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  margin-bottom: 22px;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.auth-error {
+  color: var(--c-error);
+  font-size: 0.82rem;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wordmark-text {
+  font-weight: 600;
+  letter-spacing: var(--t-tracking-label);
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+.BIAFYT-logo {
+  filter: drop-shadow(0 0 10px var(--c-glow));
+}
+
+.hero {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+/* ---------------- MODAL / DIÁLOGO ---------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--c-overlay);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 60;
+  padding: 24px;
+}
+.modal {
+  border-radius: var(--t-radius);
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--c-border);
+}
+.modal-head h2 {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+.modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+/* ---------------- RESPONSIVE ---------------- */
+
+@media (max-width: 860px) {
+  .gym-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "main";
+  }
+  .gym-sidebar {
+    display: none;
+  }
+  .gym-topbar {
+    flex-wrap: wrap;
+  }
+  .gym-main {
+    padding: 20px 16px;
+  }
+}

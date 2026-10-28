@@ -1,0 +1,82 @@
+/* BIAFYT GYM WEB — BASE
+   Los colores llegan como variables desde src/theme/colors.js.
+   Adaptación web de frontend-usuario/src/index.css: mismo ADN, pero
+   permite scroll natural del navegador y no asume viewport móvil. */
+
+:root {
+  --c-background: #0a1a1f;
+  --c-text: #dcefed;
+  --c-primary: #65cdbd;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--c-background);
+  background-image:
+    radial-gradient(60% 50% at 88% -6%, rgba(101, 205, 189, 0.14), transparent 60%),
+    radial-gradient(50% 40% at 4% 2%, rgba(101, 205, 189, 0.07), transparent 58%),
+    linear-gradient(180deg, #112b32 0%, #0a1a1f 46%, #081418 100%);
+  background-attachment: fixed;
+  color: var(--c-text);
+  font-family: var(--t-font-body, system-ui, -apple-system, sans-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+h1 {
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+h3 {
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+strong {
+  font-weight: 600;
+}
+
+p {
+  margin: 0.25rem 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}

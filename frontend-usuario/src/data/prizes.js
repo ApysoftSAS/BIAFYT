@@ -1,0 +1,136 @@
+/**
+ * BIAFYT — PREMIOS NO FÍSICOS (puntos 63, 64, 97)
+ * transferable define si el beneficio puede regalarse.
+ *
+ * `source` indica quién otorga el premio — "BIAFYT" (la app, con sus
+ * puntos/ranking/duelos) o "gym" (un gimnasio concreto, vía `gymId`). Es
+ * un único catálogo: no hay dos sistemas de premios separados, solo dos
+ * procedencias posibles dentro del mismo modelo.
+ */
+
+export const prizeCatalog = [
+  {
+    id: "pz-mes-gratis",
+    title: "1 MES GRATIS",
+    kind: "Membresía",
+    condition: "🔥 TOP 1 DEL MES",
+    detail: "Canjea este beneficio en tu gimnasio.",
+    cost: 0,
+    transferable: true,
+    unlock: { type: "rank", scope: "gym", position: 1 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-semana-gratis",
+    title: "1 SEMANA GRATIS",
+    kind: "Membresía",
+    condition: "TOP 3 DE TU SEDE",
+    detail: "Se suma automáticamente a tu próxima renovación.",
+    cost: 0,
+    transferable: true,
+    unlock: { type: "rank", scope: "branch", position: 3 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-desc-membresia",
+    title: "20% EN MEMBRESÍA",
+    kind: "Descuento",
+    condition: "1.500 puntos",
+    detail: "Aplica sobre la siguiente mensualidad.",
+    cost: 1500,
+    transferable: true,
+    unlock: { type: "points", amount: 1500 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-desc-producto",
+    title: "15% EN TIENDA",
+    kind: "Descuento",
+    condition: "800 puntos",
+    detail: "Suplementos y accesorios del gimnasio.",
+    cost: 800,
+    transferable: true,
+    unlock: { type: "points", amount: 800 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-clase-gratis",
+    title: "CLASE GRATIS",
+    kind: "Beneficio",
+    condition: "600 puntos",
+    detail: "Una clase dirigida a elección en tu sede.",
+    cost: 600,
+    transferable: true,
+    unlock: { type: "points", amount: 600 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-valoracion",
+    title: "VALORACIÓN FÍSICA",
+    kind: "Experiencia",
+    condition: "1.200 puntos",
+    detail: "Sesión de medición y ajuste de rutina con entrenador.",
+    cost: 1200,
+    transferable: false,
+    unlock: { type: "points", amount: 1200 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-patrocinado",
+    title: "CUPÓN PATROCINADO",
+    kind: "Patrocinio",
+    condition: "400 puntos",
+    detail: "Beneficio de marca aliada, canjeable en la app.",
+    cost: 400,
+    transferable: true,
+    unlock: { type: "points", amount: 400 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-duelo-legend",
+    title: "INSIGNIA RETADOR",
+    kind: "Digital",
+    condition: "5 duelos ganados",
+    detail: "Insignia permanente en tu perfil.",
+    cost: 0,
+    transferable: false,
+    unlock: { type: "duels", wins: 5 },
+    source: "BIAFYT",
+    gymId: null,
+  },
+  {
+    id: "pz-gym-spinning",
+    title: "CLASE DE SPINNING GRATIS",
+    kind: "Beneficio",
+    condition: "300 puntos",
+    detail: "Ofrecido por KAIROS GYM. Válido en tu sede.",
+    cost: 300,
+    transferable: true,
+    unlock: { type: "points", amount: 300 },
+    source: "gym",
+    gymId: "gym-kairos-bog",
+  },
+  {
+    id: "pz-gym-batido",
+    title: "BATIDO PROTEICO GRATIS",
+    kind: "Beneficio",
+    condition: "200 puntos",
+    detail: "Ofrecido por TITAN FITNESS. Canjéalo en barra.",
+    cost: 200,
+    transferable: true,
+    unlock: { type: "points", amount: 200 },
+    source: "gym",
+    gymId: "gym-titan-bog",
+  },
+];
+
+export function findPrize(id) {
+  return prizeCatalog.find((p) => p.id === id) || null;
+}
