@@ -22,9 +22,7 @@
 .input,
 .machine-card,
 .rank-row {
-  background: var(--c-surface);
-  -webkit-backdrop-filter: blur(var(--t-glass-blur)) saturate(150%);
-  backdrop-filter: blur(var(--t-glass-blur)) saturate(150%);
+  background: var(--c-surface-solid);
   border: 1px solid var(--c-border);
   box-shadow: var(--t-glass-inner), var(--t-glass-shadow);
 }
@@ -385,6 +383,7 @@ button.card:active {
   border: none;
   border-radius: var(--t-radius-pill);
   padding: 14px 20px;
+  min-height: 44px;
   font-weight: 800;
   font-size: 0.86rem;
   letter-spacing: 0.08em;
@@ -424,8 +423,8 @@ button.card:active {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   color: var(--c-text);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--t-radius-pill);
   font-size: 1rem;
   display: grid;
@@ -555,6 +554,7 @@ button.card:active {
   color: var(--c-text-secondary);
   border-radius: var(--t-radius-pill);
   padding: 9px 16px;
+  min-height: 44px;
   font-size: 0.8rem;
   white-space: nowrap;
 }
@@ -1209,6 +1209,7 @@ button.card:active {
   background: none;
   border: none;
   color: var(--c-inactive);
+  min-height: 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1219,6 +1220,8 @@ button.card:active {
 .nav-active {
   color: var(--c-active);
   text-shadow: 0 0 14px var(--c-glow);
+  background: var(--c-surface-alt);
+  border-radius: var(--t-radius-pill);
 }
 .nav-icon {
   font-size: 1.15rem;
@@ -1680,5 +1683,104 @@ button.card:active {
 @keyframes bio-pulse {
   50% {
     box-shadow: 0 0 40px var(--c-glow);
+  }
+}
+
+/* ---------------- ACABADO GLASS Y ACCESIBILIDAD ----------------
+   Las superficies conservan un fondo opaco si el navegador no puede
+   desenfocar; el vidrio translúcido solo se activa cuando hay soporte. */
+
+.screen-head,
+.home-head,
+.workout-head {
+  background: var(--c-background-alt);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.glass,
+.card:not(.card-accent),
+.modal,
+.bottom-nav,
+.coach-bubble,
+.icon-btn,
+.tab:not(.tab-active),
+.option,
+.input,
+.machine-card,
+.rank-row {
+  background: var(--c-surface-solid);
+}
+
+.screen-head,
+.home-head,
+.workout-head,
+.btn-ghost {
+  background: var(--c-background-alt);
+}
+
+.modal-backdrop {
+  background: var(--c-overlay);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass,
+  .card:not(.card-accent),
+  .coach-bubble,
+  .icon-btn,
+  .tab:not(.tab-active),
+  .option,
+  .input,
+  .machine-card,
+  .rank-row {
+    background: var(--c-surface-alt);
+    -webkit-backdrop-filter: blur(var(--t-glass-blur)) saturate(150%);
+    backdrop-filter: blur(var(--t-glass-blur)) saturate(150%);
+  }
+
+  .screen-head,
+  .home-head,
+  .workout-head {
+    background: var(--c-overlay);
+    -webkit-backdrop-filter: blur(var(--t-glass-blur)) saturate(145%);
+    backdrop-filter: blur(var(--t-glass-blur)) saturate(145%);
+  }
+
+  .bottom-nav,
+  .modal,
+  .btn-ghost {
+    background: var(--c-overlay);
+    -webkit-backdrop-filter: blur(var(--t-glass-blur-strong)) saturate(160%);
+    backdrop-filter: blur(var(--t-glass-blur-strong)) saturate(160%);
+  }
+
+  .modal-backdrop {
+    background: var(--c-overlay);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 3px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

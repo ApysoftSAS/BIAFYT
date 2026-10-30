@@ -6,7 +6,7 @@
  */
 
 import appConfig from "../config/appConfig.js";
-import logo from "../assets/BIAFYT-logo.webp";
+import logo from "../assets/somaglyph-logo.webp";
 
 export function Glyph({ size = 48 }) {
   return (
