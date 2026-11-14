@@ -19,5 +19,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
+    // Node >= 25 expone un `localStorage` global propio (undefined sin
+    // --localstorage-file) que tapa el de jsdom y rompe los tests.
+    execArgv: ["--no-experimental-webstorage"],
   },
 });

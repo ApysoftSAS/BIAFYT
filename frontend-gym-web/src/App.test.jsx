@@ -188,4 +188,38 @@ describe("App (Gym Web)", () => {
     expect(container.textContent).toContain("Prensa Hammer Strength");
     expect(container.textContent).toContain("Pendiente");
   });
+
+  it("Sedes y Vouchers: listan datos reales del gym y el menú ya no los marca como próximos", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth: { token: "t", signedIn: true, user: { id: 1, name: "A" } } }));
+    vi.stubGlobal("fetch", mockApi({
+      "/auth/me": { user: { id: 1, name: "A", email: "a@x.test" } },
+      "/me/gym-assignments": { gym_assignments: [{ id: 7, role: "gym_admin", gym: { id: 3, name: "KAIROS" }, branch: null }] },
+      "/me/gym/3/members": { members: [{ id: 4, user: { id: 9, name: "Ana Atleta" }, role: "member", branch: { id: 1, name: "Norte" }, since: null }] },
+      "/me/gym/3/coaches": { coaches: [] },
+      "/me/gym/3/branches": { branches: [{ id: 1, name: "Norte", members_count: 1 }] },
+      "/me/gym/3/vouchers": { vouchers: [{ id: 2, code: "VCH-ABC", athlete: { id: 9, name: "Ana Atleta" }, title: "Clase gratis", benefit_type: "percent", benefit_value: 20, benefit_description: "x", status: "issued", expires_at: null }], next_cursor: null, has_more: false },
+      "/gyms": { gyms: [{ id: 3, name: "KAIROS", branches: [{ id: 1, name: "Norte" }] }] },
+    }));
+
+    await act(async () => {
+      createRoot(container).render(<App />);
+    });
+    await flush();
+
+    const nav = (label) => [...container.querySelectorAll(".gym-nav-item")].find((b) => b.textContent.includes(label));
+    expect(nav("Sedes").disabled).toBe(false);
+    expect(nav("Staff").disabled).toBe(true);
+
+    await act(async () => nav("Sedes").click());
+    await flush();
+    expect(container.textContent).toContain("Sedes (1)");
+    // La única sede no se puede eliminar.
+    expect([...container.querySelectorAll("button")].find((b) => b.textContent === "Eliminar").disabled).toBe(true);
+
+    await act(async () => nav("Vouchers").click());
+    await flush();
+    expect(container.textContent).toContain("VCH-ABC");
+    expect(container.textContent).toContain("20% de descuento");
+    expect(container.textContent).toContain("Marcar usado");
+  });
 });

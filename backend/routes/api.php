@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\CheckInController;
 use App\Http\Controllers\Api\V1\CoachAthleteController;
 use App\Http\Controllers\Api\V1\CoachAthleteRelationshipController;
+use App\Http\Controllers\Api\V1\CoachVideoController;
 use App\Http\Controllers\Api\V1\CoachVoucherController;
 use App\Http\Controllers\Api\V1\DuelController;
 use App\Http\Controllers\Api\V1\EquipmentController;
@@ -78,6 +79,13 @@ Route::prefix('v1')->group(function () {
         Route::post('me/coach/athletes/{athleteUserId}/notes', [CoachAthleteController::class, 'notesStore']);
         Route::delete('me/coach/notes/{note}', [CoachAthleteController::class, 'notesDestroy']);
 
+        // Coach video showcase (TikTok links): any signed-in user browses it;
+        // only an active coach publishes.
+        Route::get('coach-videos', [CoachVideoController::class, 'index']);
+        Route::get('me/coach/videos', [CoachVideoController::class, 'mine']);
+        Route::post('me/coach/videos', [CoachVideoController::class, 'store']);
+        Route::delete('me/coach/videos/{video}', [CoachVideoController::class, 'destroy'])->whereNumber('video');
+
         // Coach-authored training programs FOR a related athlete (slice
         // D-COACH-PROGRAMS). Gated by an active coach<->athlete relationship
         // only; GymAssignment plays no part. `user_id` = athlete (route),
@@ -108,7 +116,13 @@ Route::prefix('v1')->group(function () {
         // gym creation, no programs/workouts. Route params are numeric-only
         // (a non-numeric segment 404s at the router, never reaching the
         // controller as a bad type).
-        Route::whereNumber(['gym', 'id', 'userId', 'equipment', 'equipmentRequest', 'voucher'])->group(function () {
+        Route::whereNumber(['gym', 'id', 'userId', 'equipment', 'equipmentRequest', 'voucher', 'branch'])->group(function () {
+            // Branches ("sedes") of the gym_admin's own gym.
+            Route::get('me/gym/{gym}/branches', [GymAdminController::class, 'branches']);
+            Route::post('me/gym/{gym}/branches', [GymAdminController::class, 'storeBranch']);
+            Route::patch('me/gym/{gym}/branches/{branch}', [GymAdminController::class, 'updateBranch']);
+            Route::delete('me/gym/{gym}/branches/{branch}', [GymAdminController::class, 'destroyBranch']);
+
             Route::get('me/gym/{gym}/members', [GymAdminController::class, 'members']);
             Route::get('me/gym/{gym}/coaches', [GymAdminController::class, 'coaches']);
             Route::get('me/gym/{gym}/user-lookup', [GymAdminController::class, 'userLookup']);

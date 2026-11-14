@@ -17,8 +17,9 @@ The repository also holds five separate front-end apps (see `../CLAUDE.md`):
   `longest_streak`, roadmap 3a); drives the **real duel domain** from the
   backend (`GET /me/duels` + `DuelController`, roadmap 3b); sends a
   best-effort shadow copy of Activity/Check-in/Challenge/Reward/Duel to the
-  backend. LocalStorage is still the visible source of truth for points,
-  training, calendar and ranking — there is no points-authority flip. The
+  backend. The visible points balance/history is read from `GET /me/points`
+  (cursor-paginated); LocalStorage is still the visible source of truth for
+  training, calendar and ranking, and there is no offline retry/outbox. The
   duel STAKE is reconciled in LocalStorage (`AppContext#reconcileDuels`).
   `identity.user.streak` persists in LocalStorage only as a session fact for
   the points path.

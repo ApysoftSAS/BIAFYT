@@ -220,3 +220,24 @@ export function apiGetGymAssignments(token) {
 export function apiGetGymEquipment(gymId) {
   return apiFetch(`/gyms/${gymId}/equipment`);
 }
+
+// ------------------------------------------------------------------
+// VITRINA DE VIDEOS (TikTok)
+// ------------------------------------------------------------------
+// El coach pega el enlace de un video suyo de TikTok; todos los usuarios
+// de BIAFYT lo ven en la app. Requiere rol coach activo (422 si no).
+
+/** GET /me/coach/videos → { videos: [{ id, title, tiktok_username, tiktok_video_id }] } */
+export function apiGetMyVideos(token) {
+  return apiFetch("/me/coach/videos", { token });
+}
+
+/** POST /me/coach/videos — body { url, title } → { video } (201). */
+export function apiCreateVideo(token, { url, title }) {
+  return apiFetch("/me/coach/videos", { method: "POST", token, body: { url, title } });
+}
+
+/** DELETE /me/coach/videos/{id} → 204. */
+export function apiDeleteVideo(token, id) {
+  return apiFetch(`/me/coach/videos/${id}`, { method: "DELETE", token });
+}

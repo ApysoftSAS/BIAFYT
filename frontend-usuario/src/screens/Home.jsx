@@ -62,6 +62,29 @@ export default function Home({ onNavigate, gpsState }) {
       </header>
 
       <div className="screen-body">
+        {/* ENTRENAMIENTO */}
+        <Card className="home-workout">
+          <p className="micro">RUTINA DE HOY</p>
+          <h3>{routine.name}</h3>
+          <p className="muted">
+            {routine.exercises.length} ejercicios · {setsFor(firstExercise)} series · {firstUnitText}
+          </p>
+          {routine.custom && <p className="micro">Rutina creada por ti</p>}
+          <div className="row-gap">
+            <Button full onClick={() => onNavigate("workout")}>
+              ▶ ENTRENAR
+            </Button>
+            <Button variant="ghost" full onClick={() => onNavigate("routines")}>
+              MIS RUTINAS
+            </Button>
+          </div>
+          {gpsState && (
+            <p className="micro">
+              Estado GPS: <span className={gpsState === "GRANTED" ? "text-success" : "text-warning"}>{gpsLabel(gpsState)}</span>
+            </p>
+          )}
+        </Card>
+
         {/* PUNTOS Y RACHA */}
         <Card accent>
           <div className="row-between">
@@ -99,29 +122,6 @@ export default function Home({ onNavigate, gpsState }) {
               {insideGym ? "CHECK-OUT" : checkedToday ? "HECHO" : "CHECK-IN"}
             </Button>
           </div>
-        </Card>
-
-        {/* ENTRENAMIENTO */}
-        <Card>
-          <p className="micro">RUTINA DE HOY</p>
-          <h3>{routine.name}</h3>
-          <p className="muted">
-            {routine.exercises.length} ejercicios · {setsFor(firstExercise)} series · {firstUnitText}
-          </p>
-          {routine.custom && <p className="micro">Rutina creada por ti</p>}
-          <div className="row-gap">
-            <Button full onClick={() => onNavigate("workout")}>
-              ▶ ENTRENAR
-            </Button>
-            <Button variant="ghost" full onClick={() => onNavigate("routines")}>
-              MIS RUTINAS
-            </Button>
-          </div>
-          {gpsState && (
-            <p className="micro">
-              Estado GPS: <span className={gpsState === "GRANTED" ? "text-success" : "text-warning"}>{gpsLabel(gpsState)}</span>
-            </p>
-          )}
         </Card>
 
         {/* DUELOS PENDIENTES (tarjeta contextual, punto 94) */}
@@ -208,36 +208,39 @@ export default function Home({ onNavigate, gpsState }) {
         </Card>
 
         {/* ACCESOS */}
-        <div className="grid-2">
-          <Card onClick={() => onNavigate("machines")}>
-            <strong>MÁQUINAS</strong>
-            <p className="muted">Biblioteca guiada</p>
-          </Card>
-          <Card onClick={() => onNavigate("prizes")}>
-            <strong>PREMIOS</strong>
-            <p className="muted">Beneficios y descuentos</p>
-          </Card>
-          <Card onClick={() => onNavigate("calendar")}>
-            <strong>CALENDARIO</strong>
-            <p className="muted">Tu historial y agenda</p>
-          </Card>
-          <Card onClick={() => onNavigate("news")}>
-            <strong>NOVEDADES</strong>
-            <p className="muted">Noticias y promociones</p>
-          </Card>
-          <Card onClick={() => onNavigate("videos")}>
-            <strong>VIDEOS</strong>
-            <p className="muted">Coaches en TikTok</p>
-          </Card>
-          <Card onClick={() => onNavigate("plans")}>
-            <strong>PLANES</strong>
-            <p className="muted">Tu membresía</p>
-          </Card>
-          <Card onClick={() => onNavigate("analytics")}>
-            <strong>ANALYTICS</strong>
-            <p className="muted">Tu progreso real</p>
-          </Card>
-        </div>
+        <details className="home-explore">
+          <summary>Explorar más <span>Máquinas, premios y otros accesos</span></summary>
+          <div className="grid-2 home-explore-grid">
+            <Card onClick={() => onNavigate("machines")}>
+              <strong>MÁQUINAS</strong>
+              <p className="muted">Biblioteca guiada</p>
+            </Card>
+            <Card onClick={() => onNavigate("prizes")}>
+              <strong>PREMIOS</strong>
+              <p className="muted">Beneficios y descuentos</p>
+            </Card>
+            <Card onClick={() => onNavigate("calendar")}>
+              <strong>CALENDARIO</strong>
+              <p className="muted">Tu historial y agenda</p>
+            </Card>
+            <Card onClick={() => onNavigate("news")}>
+              <strong>NOVEDADES</strong>
+              <p className="muted">Noticias y promociones</p>
+            </Card>
+            <Card onClick={() => onNavigate("videos")}>
+              <strong>VIDEOS</strong>
+              <p className="muted">Coaches en TikTok</p>
+            </Card>
+            <Card onClick={() => onNavigate("plans")}>
+              <strong>PLANES</strong>
+              <p className="muted">Tu membresía</p>
+            </Card>
+            <Card onClick={() => onNavigate("analytics")}>
+              <strong>ANALYTICS</strong>
+              <p className="muted">Tu progreso real</p>
+            </Card>
+          </div>
+        </details>
       </div>
 
       <Coach state={pendingDuels.length ? "competitivo" : "normal"} message={pendingDuels.length ? "Tienes un duelo esperando." : "Aquí estoy cuando lo necesites."} onClick={() => onNavigate(pendingDuels.length ? "duels" : "workout")} />

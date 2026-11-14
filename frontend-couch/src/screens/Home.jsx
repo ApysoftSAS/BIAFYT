@@ -75,8 +75,8 @@ export default function Home({ onNavigate }) {
         <Card className="soft">
           <p className="micro">NOTA</p>
           <p className="muted">
-            El backend solo expone hoy la relación de consentimiento coach↔atleta. Ver el entrenamiento, los
-            programas y el progreso de cada atleta llegará cuando existan esos endpoints.
+            Desde el detalle de cada atleta activo puedes ver su perfil, actividad, racha y puntos, dejarle notas
+            y crearle rutinas.
           </p>
         </Card>
       </div>

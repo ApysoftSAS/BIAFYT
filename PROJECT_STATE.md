@@ -2,6 +2,16 @@
 
 Memoria técnica compacta. NO es un changelog. Léase antes de iniciar cualquier fase nueva para evitar reinvestigar o reimplementar algo que ya existe.
 
+## VERIFICACIÓN 2026-11-14 (prevalece sobre las cifras de abajo)
+
+- El historial de git se reinició: el repo tiene solo `eb01509` y `d9363e7`. **Ningún hash citado más abajo existe ya**; las fases marcadas "sin commit" SÍ están en el repo.
+- Estado real medido: **39 migraciones** (todas `Ran` en la BD dev), **646/646 backend** + Pint verde; lint/test/build verdes en los 5 frontends (usuario 170 / couch 16 / gym 6 / gym-web 21 / admin 14).
+- Arreglado en esta fecha: import del logo en `Brand.jsx` de couch/gym/gym-web/admin (apuntaba a un archivo inexistente → 4 builds rotos); `execArgv: ["--no-experimental-webstorage"]` en los 5 `vite.config.js` (Node ≥ 25 tapa el `localStorage` de jsdom); `DEPLOY.md` a 39 migraciones + `EquipmentSeeder`.
+- **Contradicción doc↔código SIN RESOLVER (requiere decisión):** los `CLAUDE.md` y este archivo dicen que no hay flip de autoridad de puntos, pero `frontend-usuario` ya muestra saldo e historial desde `GET /me/points` (`AppContext#loadPoints`, cursor + idempotencia `client_uid`; Home/Profile/Prizes). No existe outbox/reintento offline.
+- **Vitrina de videos de coaches (TikTok), IMPLEMENTADA 2026-11-14** (`BIAFYT_BUSINESS_CORE.md` §53): tabla `coach_videos` (migración nº 40) + `CoachVideoController` (`GET /coach-videos` para cualquier usuario; `GET·POST /me/coach/videos`, `DELETE /me/coach/videos/{id}` para el coach con rol activo) + card en `frontend-couch` Perfil + `frontend-usuario/screens/Videos.jsx` real (mocks `data/videos.js`/`data/coaches.js` eliminados). Sin API/OAuth de TikTok: el oEmbed público no valida ni devuelve autor, así que la propiedad de la cuenta NO se verifica. Backend 652/652.
+- **Gym Web — Sedes + Vouchers, IMPLEMENTADO 2026-11-14:** backend `GymAdminController::{branches,storeBranch,updateBranch,destroyBranch}` (`GET·POST /me/gym/{gym}/branches`, `PATCH·DELETE .../branches/{branch}`; sin migración) + pantallas `Branches.jsx` y `Vouchers.jsx` en `frontend-gym-web` (los endpoints de vouchers del gym ya existían sin UI). El menú solo deja "Staff" como próximamente (capacidades sin definir, §6). Backend 655/655; gym-web 22 tests.
+- `frontend-usuario/yarn.lock` volvió a entrar al repo (se había eliminado; npm es el único gestor).
+
 ## CHECKPOINT DE RECUPERACIÓN
 
 - HEAD antes del cierre D1: `e23f31d` ("feat(couch): add coach frontend phase 1"). El cierre D1 (commit inmediatamente encima) añade: Rewards backend (`RewardClaim` + débito en ledger), paridad de racha en `PointRules`, 3 skills (`api-review`/`backend-review`/`database-review`), 1 agent (`backend-engineer`) y `DEPLOY.md` — un solo snapshot reproducible.

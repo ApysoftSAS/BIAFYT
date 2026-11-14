@@ -453,6 +453,103 @@ class GymAdminController extends Controller
      * of the gym named by the route. The gym id is read only here, only from
      * the route argument.
      */
+    // -----------------------------------------------------------------
+    // BRANCHES ("sedes"): the gym_admin manages the branches of their own
+    // gym. The first branch is created by the onboarding approval.
+    // -----------------------------------------------------------------
+
+    /**
+     * Branches of the gym with their active member count.
+     */
+    public function branches(Request $request, int $gym): JsonResponse
+    {
+        $this->assertGymAdmin($request, $gym);
+
+        $branches = Branch::where('gym_id', $gym)
+            ->withCount(['gymAssignments as members_count' => fn ($q) => $q
+                ->where('role', GymAssignment::ROLE_MEMBER)
+                ->where('status', GymAssignment::STATUS_ACTIVE)])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Branch $branch) => $this->mapBranch($branch))
+            ->values();
+
+        return response()->json(['branches' => $branches]);
+    }
+
+    public function storeBranch(Request $request, int $gym): JsonResponse
+    {
+        $this->assertGymAdmin($request, $gym);
+
+        $branch = Branch::create(['gym_id' => $gym, 'name' => $this->validatedBranchName($request, $gym)]);
+
+        return response()->json(['branch' => $this->mapBranch($branch)], 201);
+    }
+
+    public function updateBranch(Request $request, int $gym, int $branch): JsonResponse
+    {
+        $this->assertGymAdmin($request, $gym);
+
+        $model = Branch::where('gym_id', $gym)->findOrFail($branch);
+        $model->update(['name' => $this->validatedBranchName($request, $gym, $model->id)]);
+
+        return response()->json(['branch' => $this->mapBranch($model)]);
+    }
+
+    /**
+     * Delete a branch. Refused (422) while it is the gym's only branch or
+     * while any assignment — active or revoked — still references it: the
+     * assignment history is kept, never cascaded away.
+     */
+    public function destroyBranch(Request $request, int $gym, int $branch): JsonResponse
+    {
+        $this->assertGymAdmin($request, $gym);
+
+        $model = Branch::where('gym_id', $gym)->findOrFail($branch);
+
+        if (Branch::where('gym_id', $gym)->count() <= 1) {
+            throw ValidationException::withMessages(['branch' => ['A gym must keep at least one branch.']]);
+        }
+
+        if ($model->gymAssignments()->exists()) {
+            throw ValidationException::withMessages([
+                'branch' => ['This branch has members or assignment history and cannot be deleted. Rename it instead.'],
+            ]);
+        }
+
+        $model->delete();
+
+        return response()->json(null, 204);
+    }
+
+    private function validatedBranchName(Request $request, int $gym, ?int $ignoreId = null): string
+    {
+        $name = trim($request->validate(['name' => ['required', 'string', 'max:255']])['name']);
+
+        $taken = Branch::where('gym_id', $gym)
+            ->where('name', $name)
+            ->when($ignoreId !== null, fn ($q) => $q->where('id', '!=', $ignoreId))
+            ->exists();
+
+        if ($taken) {
+            throw ValidationException::withMessages(['name' => ['This gym already has a branch with that name.']]);
+        }
+
+        return $name;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapBranch(Branch $branch): array
+    {
+        return [
+            'id' => $branch->id,
+            'name' => $branch->name,
+            'members_count' => (int) ($branch->members_count ?? 0),
+        ];
+    }
+
     private function assertGymAdmin(Request $request, int $gym): void
     {
         abort_unless(

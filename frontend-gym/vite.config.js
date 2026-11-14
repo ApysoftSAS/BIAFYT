@@ -20,5 +20,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
+    // Node >= 25 expone un `localStorage` global propio que tapa el de jsdom.
+    execArgv: ["--no-experimental-webstorage"],
   },
 });

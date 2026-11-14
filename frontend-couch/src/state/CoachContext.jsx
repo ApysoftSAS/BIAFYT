@@ -22,6 +22,9 @@ import {
   apiGetExerciseCatalog,
   apiGetGymAssignments,
   apiGetGymEquipment,
+  apiGetMyVideos,
+  apiCreateVideo,
+  apiDeleteVideo,
 } from "../utils/api.js";
 import { initialsOf } from "../utils/format.js";
 
@@ -279,6 +282,14 @@ export function CoachProvider({ children }) {
 
   const getGymEquipment = useCallback((gymId) => apiGetGymEquipment(gymId), []);
 
+  // Vitrina de videos (TikTok) del propio coach.
+  const getMyVideos = useCallback(() => runAuthed(() => apiGetMyVideos(auth.token)), [auth.token, runAuthed]);
+  const createVideo = useCallback(
+    (payload) => runAuthed(() => apiCreateVideo(auth.token, payload)),
+    [auth.token, runAuthed]
+  );
+  const deleteVideo = useCallback((id) => runAuthed(() => apiDeleteVideo(auth.token, id)), [auth.token, runAuthed]);
+
   const value = useMemo(
     () => ({
       auth,
@@ -306,6 +317,9 @@ export function CoachProvider({ children }) {
         getExerciseCatalog,
         getCoachGyms,
         getGymEquipment,
+        getMyVideos,
+        createVideo,
+        deleteVideo,
       },
     }),
     [
@@ -333,6 +347,9 @@ export function CoachProvider({ children }) {
       getExerciseCatalog,
       getCoachGyms,
       getGymEquipment,
+      getMyVideos,
+      createVideo,
+      deleteVideo,
     ]
   );
 

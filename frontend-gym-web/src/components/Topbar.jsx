@@ -3,6 +3,9 @@ import { useSession } from "../state/SessionContext.jsx";
 const TITLES = {
   overview: "Resumen",
   workspace: "Espacio",
+  branches: "Sedes",
+  inventory: "Inventario",
+  vouchers: "Vouchers",
   account: "Cuenta",
 };
 

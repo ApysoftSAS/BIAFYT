@@ -5,21 +5,25 @@ front-end apps plus one backend:
 
 - `frontend-usuario/`: the end-user app. React 19 + Vite + Capacitor. The
   backend is authoritative only for **Auth** and **Profile**; the exercise
-  catalog is fetched from the backend with an atomic local fallback. Points,
-  training, streak, challenges, rewards, calendar, duels and ranking are
-  LocalStorage-based; Activity, Check-in, Challenge and Reward also send a
-  **best-effort shadow copy** to the backend (LocalStorage stays the visible
-  source of truth — there is no points-authority flip). See
-  `frontend-usuario/CLAUDE.md`.
+  catalog is fetched from the backend with an atomic local fallback. The
+  **visible points balance and history** (`GET /me/points`), the **visible
+  streak** (`GET /me/streak`) and the **duel state** (`GET /me/duels`) come
+  from the backend. Training, check-in state, challenges, rewards, calendar
+  and ranking (mock) are still LocalStorage-based; Activity, Check-in,
+  Challenge and Reward are sent to the backend **best-effort** (no retry, no
+  offline queue — a failed POST means those points never reach the visible
+  balance). See `frontend-usuario/CLAUDE.md`.
 - `frontend-couch/`: the Coach-role app. React 19 + Vite + Capacitor. Sanctum
   auth plus the coach↔athlete consent relationship (`CoachAthleteRelationship`),
   which is the authorization gate. Coach MVP (slice D-COACH, CLOSED): with a
   currently **active** relationship a coach reads the athlete's Profile, an
   activity summary, the check-in streak (current/longest) and the points
   balance — activity/points/streak are **shadow/best-effort** quality — and
-  writes private feedback notes (`CoachNote`). No access to the athlete's
-  programs, workouts, raw check-ins, rewards or duels, and no editing of the
-  athlete; the relationship is not gym-scoped. See `frontend-couch/CLAUDE.md`.
+  writes private feedback notes (`CoachNote`). The coach also authors
+  routines (`Program`) for the athlete and issues vouchers to them. No access
+  to the athlete's own workouts, raw check-ins, rewards or duels, and no
+  editing of the athlete; the relationship is not gym-scoped. See
+  `frontend-couch/CLAUDE.md`.
 - `frontend-gym/`: the Gym mobile application surface. React 19 + Vite +
   Capacitor. Its UI foundation may be prepared before the Coach/Gym product
   phase, but no Gym business logic, authorization or domain workflows are

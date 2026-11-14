@@ -36,6 +36,14 @@ import {
   apiGetGymEquipmentRequests,
   apiCreateGymEquipmentRequest,
   apiUpdateGymEquipmentRequest,
+  apiGetGymBranches,
+  apiCreateGymBranch,
+  apiRenameGymBranch,
+  apiDeleteGymBranch,
+  apiGetGymVouchers,
+  apiCreateGymVoucher,
+  apiRedeemGymVoucher,
+  apiRevokeGymVoucher,
 } from "../utils/api.js";
 import { adminGymsFrom } from "../utils/gym.js";
 import { initialsOf } from "../utils/format.js";
@@ -214,6 +222,15 @@ export function SessionProvider({ children }) {
         runAuthed(() => apiCreateGymEquipmentRequest(auth.token, activeGymId, payload)),
       updateEquipmentRequest: (id, payload) =>
         runAuthed(() => apiUpdateGymEquipmentRequest(auth.token, activeGymId, id, payload)),
+      // Gestión de sedes (con conteo de miembros) y vouchers del gym.
+      getManagedBranches: () => runAuthed(() => apiGetGymBranches(auth.token, activeGymId)),
+      createBranch: (name) => runAuthed(() => apiCreateGymBranch(auth.token, activeGymId, name)),
+      renameBranch: (id, name) => runAuthed(() => apiRenameGymBranch(auth.token, activeGymId, id, name)),
+      deleteBranch: (id) => runAuthed(() => apiDeleteGymBranch(auth.token, activeGymId, id)),
+      getVouchers: (cursor) => runAuthed(() => apiGetGymVouchers(auth.token, activeGymId, cursor)),
+      createVoucher: (payload) => runAuthed(() => apiCreateGymVoucher(auth.token, activeGymId, payload)),
+      redeemVoucher: (id) => runAuthed(() => apiRedeemGymVoucher(auth.token, activeGymId, id)),
+      revokeVoucher: (id) => runAuthed(() => apiRevokeGymVoucher(auth.token, activeGymId, id)),
       getBranches: async () => {
         const { gyms } = await apiGetGyms();
         return gyms.find((g) => g.id === activeGymId)?.branches ?? [];

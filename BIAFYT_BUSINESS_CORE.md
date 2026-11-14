@@ -171,6 +171,14 @@ No asumir que un usuario solamente "selecciona un gimnasio" y eso equivale autom
    concediendo a mano en la BD (sin endpoint). El resto de lo de abajo sigue
    diferido a la Fase 5.
 
+   **ACTUALIZACIÓN 2026-11-14 — Sedes:** el `gym_admin` SÍ crea, renombra y
+   elimina las sedes (`Branch`) de su propio gym por API/UI (Gym Web →
+   Sedes). Reglas: nombre único dentro del gym; un gym conserva siempre al
+   menos una sede; una sede con miembros o historial de asignaciones no se
+   elimina (se renombra). Reemplaza la parte de D-GYM-8 que dejaba `Branch`
+   solo por bootstrap. `staff` sigue DORMANTE y PENDIENTE DE DECISIÓN: sus
+   capacidades no están definidas.
+
 Conceptualmente:
 
 gym_admin
@@ -929,7 +937,13 @@ buildRoutine/customRoutines permanecen para solo-user.
 El puente entre ambos queda diferido.
 No migrar rutinas personales automáticamente.
 D4 — Flip de puntos
-DECIDIDO — NO IMPLEMENTADO
+DECIDIDO — IMPLEMENTADO PARCIALMENTE (verificado en código 2026-11-14)
+
+Estado real: el saldo y el historial de puntos VISIBLES ya se leen del
+backend (`GET /me/points`); las 5 fuentes del ledger existen. NO existe
+la estrategia de reconciliación/offline (sin reintento ni cola): un
+envío fallido no llega al saldo. Ese prerequisito sigue PENDIENTE DE
+DECISIÓN — implementarlo o aceptar "sin conexión no hay puntos".
 
 No hacer todavía.
 
@@ -1449,6 +1463,30 @@ valida ninguna compra real todavía. Gym→Coach y cualquier voucher de captaci�
 
 Estado del documento
 Tipo: Business Core / Product & Domain Truth
+53. Vitrina de videos de coaches (TikTok) — DECIDIDO E IMPLEMENTADO (2026-11-14)
+
+Propósito: es la vitrina comercial del coach — que cualquier usuario de
+BIAFYT vea su contenido para que pueda vender sus servicios y ser
+contratado.
+
+Reglas:
+- Publica solo quien tiene rol coach ACTIVO en algún gym (mismo requisito
+  que solicitar un atleta). Si pierde el rol, sus videos dejan de mostrarse.
+- Los ven TODOS los usuarios autenticados de BIAFYT (no se limita a sus
+  atletas ni a su gym).
+- El coach pega el enlace de cada video y le pone título; publicación
+  directa, sin aprobación previa. Máximo 30 videos por coach.
+- BIAFYT no descarga ni almacena videos: se reproducen con el reproductor
+  oficial de TikTok.
+
+NO CUBRE / PENDIENTE DE DECISIÓN:
+- Verificación de que la cuenta de TikTok pertenece al coach (requiere
+  "Conectar con TikTok" — OAuth oficial, post-deploy).
+- Moderación/retirada de videos por el gym o por BIAFYT Admin.
+- Flujo de contratación: hoy el atleta NO puede solicitar a un coach desde
+  la app (la relación la inicia el coach por ID).
+- Etiquetar videos por ejercicio/máquina.
+
 Estado: Aprobado como fuente de verdad conceptual
 Implementación: Parcial; las decisiones marcadas "NO IMPLEMENTADO" no deben inferirse como código existente.
 Documento técnico complementario: PROJECT_STATE.md

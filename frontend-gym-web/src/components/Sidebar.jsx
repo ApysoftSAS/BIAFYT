@@ -4,23 +4,20 @@ import appConfig from "../config/appConfig.js";
 /**
  * BIAFYT GYM WEB — NAVEGACIÓN LATERAL (foundation)
  *
- * "Resumen" y "Espacio" son funcionales (slice D-GYM: gestión de
- * miembros/coaches del propio gym). "Sedes" y "Staff" siguen diferidos a
- * la fase Coach/Gym completa (BIAFYT_BUSINESS_CORE.md §46 D-COACH/D-GYM,
- * §47) y se muestran `disabled` para no presentarlos como funcionales.
+ * Todas las secciones de `primary` son funcionales. "Staff" sigue diferido
+ * (sus capacidades no están definidas — BIAFYT_BUSINESS_CORE.md §6) y se
+ * muestra `disabled` para no presentarlo como funcional.
  */
 const primary = [
   { id: "overview", label: "Resumen", icon: "▤", ready: true },
   { id: "workspace", label: "Espacio", icon: "▦", ready: true },
+  { id: "branches", label: "Sedes", icon: "◫", ready: true },
   { id: "inventory", label: "Inventario", icon: "▥", ready: true },
+  { id: "vouchers", label: "Vouchers", icon: "◇", ready: true },
 ];
 
-// Secciones aún no implementadas (fase Coach/Gym completa): gestión de
-// sedes y el rol staff. Miembros y coaches ya se gestionan en "Espacio".
-const comingSoon = [
-  { label: "Sedes", icon: "◫" },
-  { label: "Staff", icon: "◈" },
-];
+// Aún no implementado: el rol staff (capacidades por definir).
+const comingSoon = [{ label: "Staff", icon: "◈" }];
 
 export default function Sidebar({ current, onNavigate }) {
   return (
@@ -44,7 +41,7 @@ export default function Sidebar({ current, onNavigate }) {
       </nav>
 
       <p className="gym-sidebar-foot" style={{ marginTop: 18, marginBottom: 4 }}>
-        Próximamente (fase Coach/Gym)
+        Próximamente
       </p>
       <nav className="gym-nav">
         {comingSoon.map((it) => (

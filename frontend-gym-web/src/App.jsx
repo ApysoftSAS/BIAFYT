@@ -11,9 +11,11 @@ import NoGymAccess from "./screens/NoGymAccess.jsx";
 import Overview from "./screens/Overview.jsx";
 import Workspace from "./screens/Workspace.jsx";
 import Inventory from "./screens/Inventory.jsx";
+import Branches from "./screens/Branches.jsx";
+import Vouchers from "./screens/Vouchers.jsx";
 import Account from "./screens/Account.jsx";
 
-const SCREENS = ["overview", "workspace", "inventory", "account"];
+const SCREENS = ["overview", "workspace", "branches", "inventory", "vouchers", "account"];
 
 function Hero({ subtitle }) {
   return (
@@ -44,6 +46,8 @@ function Shell() {
   let content;
   if (view === "workspace") content = <Workspace />;
   else if (view === "inventory") content = <Inventory />;
+  else if (view === "branches") content = <Branches />;
+  else if (view === "vouchers") content = <Vouchers />;
   else if (view === "account") content = <Account />;
   else content = <Overview onNavigate={setScreen} />;
 

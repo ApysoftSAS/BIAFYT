@@ -28,7 +28,9 @@ decisión explícita nueva.** Ver `../PROJECT_STATE.md` → `FASE: Gym MVP` y
 | `MemberDetail` (`Modal`) — snapshot sombra del miembro | **Real** (slice D-GYM) |
 | `Overview` — cifras reales (sedes/miembros/coaches del gym) | **Real** (slice D-GYM) |
 | `Inventory` — inventario del gym (añadir/quitar/togglear disponibilidad de items del catálogo global) + "Solicitar nuevo equipamiento" + "Mis solicitudes" (editar y reenviar si BIAFYT pide correcciones) | **Real** (Fase 5: D-GYM-INVENTORY + D-GYM-EQUIPMENT-REQUEST) |
-| Gestión de sedes · rol `staff` · concesión de `gym_admin` · creación de Gym | **NO existe** — Fase 5+ |
+| `Branches` — sedes del gym: crear, renombrar, eliminar (no la única ni una con miembros/historial → 422) | **Real** (2026-11-14) |
+| `Vouchers` — emitir un beneficio a un miembro activo, listar, "Marcar usado", "Anular" | **Real** (2026-11-14; el backend ya existía) |
+| Rol `staff` · concesión de `gym_admin` | **NO existe** — capacidades de `staff` sin definir (`BIAFYT_BUSINESS_CORE.md` §6) |
 
 ## Endpoints del backend que usa
 
@@ -49,6 +51,8 @@ Todos bajo `VITE_API_BASE_URL` (`.env`), prefijo `/api/v1`. Definidos en
 | GET | `/equipment` (público) | Catálogo global de equipamiento (solo `is_active`) | — |
 | GET · PUT · DELETE | `/me/gym/{gym}/equipment[/{equipment}]` | Inventario del gym: leer catálogo anotado, añadir/togglear `available`, quitar | `gym_admin` activo en `{gym}` |
 | GET · POST · PATCH | `/me/gym/{gym}/equipment-requests[/{equipmentRequest}]` | Solicitar una máquina nueva al catálogo global; editar+reenviar mientras `pending`/`changes_requested` | `gym_admin` activo en `{gym}` |
+| GET · POST · PATCH · DELETE | `/me/gym/{gym}/branches[/{branch}]` | Sedes del gym (con `members_count`) | `gym_admin` activo en `{gym}` |
+| GET · POST | `/me/gym/{gym}/vouchers` · POST `.../vouchers/{id}/redeem` · `.../revoke` | Vouchers del gym a sus miembros | `gym_admin` activo en `{gym}`; destinatario = `member` activo |
 
 ## Authz / anti-IDOR (lo que el backend garantiza — no replicar en frontend)
 
@@ -87,10 +91,10 @@ sesión).
 `adminGymsFrom`, `profileRows`, `formatDuration`, `formatDate`.
 
 Pantallas: `Auth`, `NoGymAccess`, `Overview`, `Workspace`, `MemberDetail`
-(Modal), `Account`. Navegación por estado en `App.jsx` (sin router), que
+(Modal), `Branches`, `Inventory`, `Vouchers`, `Account`. Navegación por estado en `App.jsx` (sin router), que
 gatea `authChecking` → `signedIn` → `gymAccess.status`.
 
-Alcance del MVP (lo que NO se puede hacer aquí sin decisión nueva): sedes,
+Alcance del MVP (lo que NO se puede hacer aquí sin decisión nueva):
 `staff`, conceder `gym_admin`, crear gyms, programas/workouts del miembro,
 `frontend-gym` móvil, tocar `frontend-usuario`/`frontend-couch`.
 

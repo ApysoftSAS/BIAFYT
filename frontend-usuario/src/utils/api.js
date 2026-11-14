@@ -525,3 +525,16 @@ export function apiSubmitDuelRun(token, id, run) {
 export function apiGetEquipment() {
   return apiFetch("/equipment");
 }
+
+// ------------------------------------------------------------------
+// VIDEOS DE COACHES (vitrina)
+// ------------------------------------------------------------------
+
+/**
+ * GET /coach-videos → { videos: [{ id, title, tiktok_username,
+ * tiktok_video_id, coach: { id, name } }] }. Videos de TikTok que los
+ * coaches con rol activo publicaron; visibles para cualquier usuario.
+ */
+export function apiGetCoachVideos(token) {
+  return apiFetch("/coach-videos", { token });
+}

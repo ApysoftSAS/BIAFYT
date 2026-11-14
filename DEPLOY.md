@@ -136,7 +136,7 @@ Notas:
 ```bash
 cd backend
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # aplica las 24 migraciones en la DB vacía
+php artisan migrate --force          # aplica las 40 migraciones en la DB vacía
 php artisan config:cache             # verificado: cachea sin error
 php artisan route:cache              # verificado: cachea sin error
 php artisan view:cache
@@ -147,7 +147,7 @@ Servir `backend/public/` como document root (nginx/apache) o el comando del
 PaaS. Health check del proceso: **`GET /up`** → 200.
 
 **PASS/FAIL:** `php artisan about` → `Environment = production`,
-`Debug Mode = OFF`, `Database = mysql`. `php artisan migrate:status` → **24
+`Debug Mode = OFF`, `Database = mysql`. `php artisan migrate:status` → **40
 `Ran`, 0 `Pending`**.
 
 ### 1.3 Seed del catálogo de ejercicios
@@ -157,7 +157,12 @@ se ejecuta **posteriormente** al arranque (no bloquea nada):
 
 ```bash
 php artisan db:seed --class=ExerciseSeeder --force
+php artisan db:seed --class=EquipmentSeeder --force   # catálogo global de máquinas (10), idempotente
 ```
+
+`EquipmentSeeder` es necesario para el inventario de gym (`frontend-gym-web`)
+y el catálogo de equipamiento de `frontend-admin`; sin él `GET /equipment`
+devuelve `[]` y `frontend-usuario` cae a su fallback local `data/machines.js`.
 
 **PROHIBIDO en producción: `php artisan db:seed` "pelado"** (sin `--class`).
 `DatabaseSeeder` llama además a `ExerciseSeeder`, pero **fuera de producción**
@@ -385,7 +390,7 @@ Ejecutar el smoke test completo de **`docs/PRODUCTION_HARDENING_DISCOVERY.md`
 - [ ] `APP_DEBUG=false`, `APP_ENV=production` (`php artisan about`)
 - [ ] `APP_KEY` nueva (≠ local)
 - [ ] Todo sobre **HTTPS**; `http → https` redirige
-- [ ] `php artisan migrate:status` → **24 `Ran`**
+- [ ] `php artisan migrate:status` → **40 `Ran`**
 - [ ] `ExerciseSeeder` ejecutado (`COUNT(exercises) = 22`) **sin** `db:seed`
       pelado (`test@example.com` ausente)
 - [ ] 1 BIAFYT Admin bootstrapeado (`BIAFYT:grant-platform-admin`) y

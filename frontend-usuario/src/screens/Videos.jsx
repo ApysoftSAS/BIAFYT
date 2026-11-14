@@ -1,29 +1,47 @@
-import { useMemo, useState } from "react";
-import { videos } from "../data/videos.js";
-import { coaches, findCoach } from "../data/coaches.js";
+import { useEffect, useMemo, useState } from "react";
+import { useApp } from "../state/AppContext.jsx";
+import { apiErrorMessage, apiGetCoachVideos } from "../utils/api.js";
+import { initialsOf } from "../utils/format.js";
+import { tiktokPlayerUrl } from "../utils/tiktok.js";
 import { Avatar, Card, Field, Input, Tabs } from "../components/UI.jsx";
 
-// Filtro "Coach": viene de la relación real BIAFYT Coach → cuenta de
-// TikTok (sabemos de qué cuenta vino cada video). No es una categoría
-// que TikTok provea.
+// Vitrina de coaches: videos de TikTok que cada coach publicó desde su
+// app (GET /coach-videos). Los ve cualquier usuario de BIAFYT. El video
+// nunca se descarga: se reproduce con el Embed Player oficial de TikTok.
 export default function Videos({ onBack }) {
+  const { state } = useApp();
+  const token = state.auth.token;
+  const [videos, setVideos] = useState(null); // null = cargando
+  const [error, setError] = useState("");
   const [coachId, setCoachId] = useState("all");
   const [query, setQuery] = useState("");
 
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    apiGetCoachVideos(token)
+      .then((data) => alive && setVideos(data.videos))
+      .catch((e) => {
+        if (!alive) return;
+        setVideos([]);
+        setError(apiErrorMessage(e, "No pudimos cargar los videos."));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+
   const coachTabs = useMemo(() => {
-    const withVideos = coaches.filter((c) => videos.some((v) => v.coachId === c.id));
-    return [{ id: "all", label: "Todos" }, ...withVideos.map((c) => ({ id: c.id, label: c.name.split(" ")[0] }))];
-  }, []);
+    const byId = new Map((videos ?? []).map((v) => [v.coach.id, v.coach.name]));
+    return [{ id: "all", label: "Todos" }, ...[...byId].map(([id, name]) => ({ id, label: name.split(" ")[0] }))];
+  }, [videos]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return videos.filter((v) => {
-      if (coachId !== "all" && v.coachId !== coachId) return false;
-      if (!q) return true;
-      // Búsqueda sobre campos reales de TikTok (title / video_description).
-      return `${v.tiktok.title} ${v.tiktok.video_description}`.toLowerCase().includes(q);
-    });
-  }, [coachId, query]);
+    return (videos ?? []).filter(
+      (v) => (coachId === "all" || v.coach.id === coachId) && (!q || `${v.title} ${v.coach.name}`.toLowerCase().includes(q))
+    );
+  }, [videos, coachId, query]);
 
   return (
     <div className="screen">
@@ -39,41 +57,59 @@ export default function Videos({ onBack }) {
         </div>
       </header>
       <div className="screen-body">
-        <Field label="Buscar video">
+        <Field label="Buscar video o coach">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rutina, pecho, movilidad…" />
         </Field>
-        <Tabs items={coachTabs} value={coachId} onChange={setCoachId} />
+        {coachTabs.length > 2 && <Tabs items={coachTabs} value={coachId} onChange={setCoachId} />}
         <div className="stack">
+          {videos === null && <p className="muted center">Cargando…</p>}
+          {error && <p className="muted center text-warning">{error}</p>}
           {list.map((v) => (
-            <VideoCard key={v.id} video={v} coach={findCoach(v.coachId)} />
+            <VideoCard key={v.id} video={v} />
           ))}
-          {list.length === 0 && <p className="muted center">Sin videos.</p>}
+          {videos !== null && !error && list.length === 0 && (
+            <p className="muted center">{videos.length === 0 ? "Aún no hay videos de coaches." : "Sin videos."}</p>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// Reutiliza la Card existente de BIAFYT (misma superficie/borde/sombra/
-// radio que el resto de la app) — solo se complementa con el contenido
-// del video. La reproducción real (TikTok Embed Player) se conecta aquí
-// más adelante mediante utils/tiktok.js; el video nunca se descarga.
-function VideoCard({ video, coach }) {
-  const { tiktok } = video;
+// El iframe del reproductor solo se monta al tocar ▶ (uno por tarjeta):
+// evita cargar N reproductores de TikTok al abrir la pantalla.
+function VideoCard({ video }) {
+  const [playing, setPlaying] = useState(false);
+  const { coach } = video;
   return (
     <Card>
-      <div className="video-frame" aria-hidden="true">
-        ▶
-      </div>
+      {playing ? (
+        <div className="video-frame">
+          <iframe
+            src={tiktokPlayerUrl(video.tiktok_video_id)}
+            title={video.title}
+            allow="fullscreen; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      ) : (
+        <button className="video-frame" onClick={() => setPlaying(true)} aria-label={`Reproducir: ${video.title}`}>
+          ▶
+        </button>
+      )}
       <div className="rank-row-sm">
-        <Avatar initials={coach?.initials ?? "?"} name={coach?.name} size={32} />
+        <Avatar initials={initialsOf(coach.name)} name={coach.name} size={32} />
         <div>
-          <strong>{coach?.name ?? "Coach"}</strong>
-          <p className="micro">Coach</p>
+          <strong>{coach.name}</strong>
+          <p className="micro">
+            Coach ·{" "}
+            <a href={`https://www.tiktok.com/@${video.tiktok_username}`} target="_blank" rel="noreferrer">
+              @{video.tiktok_username}
+            </a>
+          </p>
         </div>
       </div>
-      <strong>{tiktok.title}</strong>
-      <p className="muted">{tiktok.video_description}</p>
+      <strong>{video.title}</strong>
     </Card>
   );
 }

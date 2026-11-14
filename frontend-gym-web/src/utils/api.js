@@ -207,3 +207,56 @@ export function apiCreateGymEquipmentRequest(token, gymId, payload) {
 export function apiUpdateGymEquipmentRequest(token, gymId, id, payload) {
   return apiFetch(`/me/gym/${gymId}/equipment-requests/${id}`, { method: "PUT", body: payload, token });
 }
+
+// ------------------------------------------------------------------
+// SEDES — el gym_admin gestiona las sedes de SU gym
+// ------------------------------------------------------------------
+
+/** GET /me/gym/{gymId}/branches → { branches: [{ id, name, members_count }] }. */
+export function apiGetGymBranches(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/branches`, { token });
+}
+
+/** POST /me/gym/{gymId}/branches — body { name } → { branch } (201). Nombre repetido → 422. */
+export function apiCreateGymBranch(token, gymId, name) {
+  return apiFetch(`/me/gym/${gymId}/branches`, { method: "POST", token, body: { name } });
+}
+
+/** PATCH /me/gym/{gymId}/branches/{id} — body { name } → { branch }. */
+export function apiRenameGymBranch(token, gymId, id, name) {
+  return apiFetch(`/me/gym/${gymId}/branches/${id}`, { method: "PATCH", token, body: { name } });
+}
+
+/** DELETE /me/gym/{gymId}/branches/{id} → 204. 422 si es la única sede o tiene asignaciones. */
+export function apiDeleteGymBranch(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/branches/${id}`, { method: "DELETE", token });
+}
+
+// ------------------------------------------------------------------
+// VOUCHERS — beneficios que el gym emite a sus miembros (sin dinero:
+// BIAFYT no cobra ni calcula precios; el gym confirma el uso).
+// ------------------------------------------------------------------
+
+/** GET /me/gym/{gymId}/vouchers → { vouchers: [...], next_cursor, has_more }. Más recientes primero. */
+export function apiGetGymVouchers(token, gymId, cursor) {
+  return apiFetch(`/me/gym/${gymId}/vouchers${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { token });
+}
+
+/**
+ * POST /me/gym/{gymId}/vouchers → { voucher } (201). Body: { athlete_user_id,
+ * title, benefit_type: percent|fixed|text, benefit_value?, benefit_description,
+ * applies_to?, expires_at? }. El destinatario debe ser miembro activo (404 si no).
+ */
+export function apiCreateGymVoucher(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/vouchers`, { method: "POST", token, body: payload });
+}
+
+/** POST /me/gym/{gymId}/vouchers/{id}/redeem → { voucher }. Solo `issued` y no vencido (422 si no). */
+export function apiRedeemGymVoucher(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/vouchers/${id}/redeem`, { method: "POST", token, body: {} });
+}
+
+/** POST /me/gym/{gymId}/vouchers/{id}/revoke → { voucher }. Solo `issued` (422 si no). */
+export function apiRevokeGymVoucher(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/vouchers/${id}/revoke`, { method: "POST", token, body: {} });
+}

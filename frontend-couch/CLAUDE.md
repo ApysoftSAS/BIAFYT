@@ -40,6 +40,7 @@ Validadas extremo a extremo contra el backend Laravel real
 | Detalle de atleta: Profile + resumen de actividad + racha + puntos (sombra) | **Implementado y validado** (slice D-COACH) — `GET /me/coach/athletes/{id}`; 404 si la relación no está `active` |
 | Notas de feedback sobre un atleta (crear / listar / borrar) | **Implementado y validado** (slice D-COACH) — privadas del coach; el atleta no las recibe |
 | Rutinas del coach para el atleta (crear / listar / editar-reemplazar / borrar) | **Implementado** (Fase 5, `RoutineBuilder.jsx` + card "RUTINAS" en `AthleteDetail`) — gym de referencia opcional + aviso/bloqueo si el equipo no está disponible allí. El atleta las ve en su app y las copia a sus rutinas locales |
+| Vitrina de videos de TikTok (publicar / listar / quitar) | **Implementado** — card "MIS VIDEOS DE TIKTOK" en `Profile.jsx`; `GET·POST /me/coach/videos`, `DELETE /me/coach/videos/{id}`. Requiere rol coach activo (422 si no); enlace completo `tiktok.com/@usuario/video/id`; máx. 30. Los ven todos los usuarios en `frontend-usuario` → Videos |
 
 ### Pendiente de validación
 
