@@ -268,9 +268,12 @@ class GymVoucherApiTest extends TestCase
         $admin = $this->admin($gym);
         $member = $this->member($gym);
 
+        // A voucher cannot be CREATED already expired: issue it with 1 day of validity
+        // and let the clock run past it.
         $id = $this->actingAs($admin)->postJson("/api/v1/me/gym/{$gym->id}/vouchers", $this->payload($member, [
-            'expires_at' => now()->subDay()->toIso8601String(),
+            'valid_days' => 1,
         ]))->json('voucher.id');
+        $this->travel(3)->days();
 
         $this->actingAs($admin)->getJson("/api/v1/me/gym/{$gym->id}/vouchers/{$id}")
             ->assertOk()->assertJsonPath('voucher.status', 'expired');

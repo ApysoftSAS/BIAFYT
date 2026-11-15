@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "../state/SessionContext.jsx";
-import { Panel, Button, Field, Input, Badge, EmptyState } from "../components/UI.jsx";
+import { Panel, Button, Badge, EmptyState } from "../components/UI.jsx";
 import { apiErrorMessage } from "../utils/api.js";
 import { formatDate } from "../utils/gym.js";
+import { CAMPAIGN_STATUS, benefitText, claimsLabel } from "../utils/voucher.js";
+import VoucherIssuePanel from "./VoucherIssuePanel.jsx";
 
 const STATUS = {
   issued: { label: "Vigente", tone: "success" },
@@ -11,42 +13,48 @@ const STATUS = {
   expired: { label: "Vencido", tone: "warning" },
 };
 
-const EMPTY_FORM = { athleteId: "", title: "", type: "text", value: "", description: "", appliesTo: "", expiresAt: "" };
-
-function benefitText(v) {
-  if (v.benefit_type === "percent") return `${v.benefit_value}% de descuento`;
-  if (v.benefit_type === "fixed") return `Descuento de ${v.benefit_value}`;
-  return v.benefit_description;
-}
-
 /**
- * VOUCHERS (Gym Web) — beneficios que el gym emite a sus miembros activos.
- * Sin dinero: BIAFYT no cobra ni calcula precios. El miembro ve el voucher
- * y su código en su app; el gym confirma aquí cuándo lo usó ("Marcar usado")
- * o lo anula mientras siga vigente.
+ * VOUCHERS (Gym Web) — beneficios que el gym da a sus miembros activos.
+ * Sin dinero: BIAFYT no cobra ni calcula precios. El miembro ve el voucher y
+ * su código en su app; el gym confirma aquí cuándo lo usó ("Marcar usado") o
+ * lo anula mientras siga vigente. Se puede emitir a un miembro, a varios a la
+ * vez o con un código compartido con cupo (`VoucherIssuePanel`). El STAFF
+ * (recepción) solo ve la lista y marca usados: emitir, anular y los códigos
+ * compartidos son del gym_admin.
  */
 export default function Vouchers() {
-  const { gymAccess, actions } = useSession();
+  const { gymAccess, actions, activeRole } = useSession();
+  const isAdmin = activeRole === "gym_admin";
   const [vouchers, setVouchers] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [members, setMembers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
 
   const load = useCallback(async () => {
     try {
-      const [v, m] = await Promise.all([actions.getVouchers(), actions.getMembers()]);
+      const none = Promise.resolve(null);
+      const [v, m, b, c] = await Promise.all([
+        actions.getVouchers(),
+        isAdmin ? actions.getMembers() : none,
+        isAdmin ? actions.getBranches() : none,
+        isAdmin ? actions.getCampaigns() : none,
+      ]);
       setVouchers(v.vouchers ?? []);
       setNextCursor(v.has_more ? v.next_cursor : null);
-      setMembers(m.members ?? []);
+      setMembers(m?.members ?? []);
+      setBranches(b ?? []);
+      setCampaigns(c?.campaigns ?? []);
     } catch (e) {
       setError(apiErrorMessage(e, "No pudimos cargar los vouchers."));
     } finally {
       setLoading(false);
     }
-  }, [actions]);
+  }, [actions, isAdmin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +69,7 @@ export default function Vouchers() {
   const run = async (fn, fallback) => {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await fn();
       await load();
@@ -69,25 +78,6 @@ export default function Vouchers() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const needsValue = form.type !== "text";
-
-  const submit = (e) => {
-    e.preventDefault();
-    run(async () => {
-      await actions.createVoucher({
-        athlete_user_id: Number(form.athleteId),
-        title: form.title.trim(),
-        benefit_type: form.type,
-        benefit_value: needsValue ? Number(form.value) : null,
-        benefit_description: form.description.trim(),
-        applies_to: form.appliesTo.trim() || null,
-        expires_at: form.expiresAt || null,
-      });
-      setForm(EMPTY_FORM);
-    }, "No se pudo emitir el voucher.");
   };
 
   const loadMore = async () => {
@@ -107,7 +97,11 @@ export default function Vouchers() {
     <div>
       <div className="gym-main-head">
         <h2>Vouchers</h2>
-        <p>Beneficios para tus miembros. El miembro lo ve en su app; tú confirmas aquí cuando lo usa.</p>
+        <p>
+          {isAdmin
+            ? "Beneficios para tus miembros. El miembro lo ve en su app; tú confirmas aquí cuando lo usa."
+            : "Confirma aquí cuando un miembro usa su beneficio (pídele el código VCH-…)."}
+        </p>
       </div>
 
       <div className="stack">
@@ -116,72 +110,79 @@ export default function Vouchers() {
             {error}
           </p>
         )}
+        {notice && (
+          <p className="text-success" role="status">
+            {notice}
+          </p>
+        )}
 
-        <Panel title="Emitir voucher">
-          {members.length === 0 && !loading ? (
-            <p className="muted">Necesitas al menos un miembro activo para emitir un voucher.</p>
-          ) : (
-            <form className="stack-sm" onSubmit={submit}>
-              <Field label="Miembro">
-                <select className="input" value={form.athleteId} onChange={set("athleteId")} required>
-                  <option value="">— elige un miembro —</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.user.id}>
-                      {m.user.name}
-                      {m.branch ? ` · ${m.branch.name}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Título">
-                <Input value={form.title} onChange={set("title")} placeholder="Clase de cortesía" maxLength={255} required />
-              </Field>
-              <div className="row-gap">
-                <Field label="Tipo de beneficio">
-                  <select className="input" value={form.type} onChange={set("type")}>
-                    <option value="text">Beneficio descrito</option>
-                    <option value="percent">Descuento en %</option>
-                    <option value="fixed">Descuento de valor fijo</option>
-                  </select>
-                </Field>
-                {needsValue && (
-                  <Field label={form.type === "percent" ? "Porcentaje" : "Valor"}>
-                    <Input
-                      type="number"
-                      min="1"
-                      max={form.type === "percent" ? "100" : undefined}
-                      value={form.value}
-                      onChange={set("value")}
-                      required
-                    />
-                  </Field>
-                )}
+        {isAdmin && (
+          <VoucherIssuePanel
+            members={members}
+            branches={branches}
+            onError={setError}
+            onDone={async (message) => {
+              setError("");
+              setNotice(message);
+              await load();
+            }}
+          />
+        )}
+
+        {isAdmin && (
+          <Panel title={`Códigos compartidos (${campaigns.length})`}>
+            {campaigns.length === 0 ? (
+              <p className="muted">Aún no has creado códigos. Usa "Código compartido" arriba.</p>
+            ) : (
+              <div className="gym-table-wrap">
+                <table className="gym-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Beneficio</th>
+                      <th>Canjes</th>
+                      <th>Vence</th>
+                      <th>Estado</th>
+                      <th aria-label="acciones" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaigns.map((c) => (
+                      <tr key={c.id}>
+                        <td>
+                          <strong>{c.code}</strong>
+                        </td>
+                        <td>
+                          <strong>{c.title}</strong>
+                          <p className="micro">{benefitText(c)}</p>
+                        </td>
+                        <td>{claimsLabel(c)}</td>
+                        <td>{c.expires_at ? formatDate(c.expires_at) : "—"}</td>
+                        <td>
+                          <Badge tone={CAMPAIGN_STATUS[c.status]?.tone}>{CAMPAIGN_STATUS[c.status]?.label ?? c.status}</Badge>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {c.status === "active" && (
+                            <Button variant="ghost" disabled={busy} onClick={() => run(() => actions.closeCampaign(c.id), "No se pudo cerrar el código.")}>
+                              Cerrar
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <Field label="Descripción" hint="Qué recibe el miembro y cómo usarlo.">
-                <Input value={form.description} onChange={set("description")} maxLength={2000} required />
-              </Field>
-              <div className="row-gap">
-                <Field label="Aplica a (opcional)">
-                  <Input value={form.appliesTo} onChange={set("appliesTo")} placeholder="Mensualidad, tienda…" maxLength={255} />
-                </Field>
-                <Field label="Vence (opcional)">
-                  <Input type="date" value={form.expiresAt} onChange={set("expiresAt")} />
-                </Field>
-              </div>
-              <div>
-                <Button type="submit" disabled={busy}>
-                  {busy ? "EMITIENDO…" : "EMITIR VOUCHER"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </Panel>
+            )}
+            <p className="micro">Cerrar un código detiene nuevos canjes; los vouchers ya canjeados siguen vigentes.</p>
+          </Panel>
+        )}
 
         <Panel title={`Vouchers emitidos (${vouchers.length}${nextCursor ? "+" : ""})`}>
           {loading ? (
             <p className="muted">Cargando…</p>
           ) : vouchers.length === 0 ? (
-            <EmptyState icon="◇" title="Sin vouchers" text="Emite el primero arriba." />
+            <EmptyState icon="◇" title="Sin vouchers" text={isAdmin ? "Emite el primero arriba." : "Aún no hay vouchers."} />
           ) : (
             <div className="gym-table-wrap">
               <table className="gym-table">
@@ -202,7 +203,10 @@ export default function Vouchers() {
                       <td>{v.athlete?.name ?? "—"}</td>
                       <td>
                         <strong>{v.title}</strong>
-                        <p className="micro">{benefitText(v)}</p>
+                        <p className="micro">
+                          {benefitText(v)}
+                          {v.via_code ? " · vía código" : ""}
+                        </p>
                       </td>
                       <td>
                         <Badge tone={STATUS[v.status]?.tone}>{STATUS[v.status]?.label ?? v.status}</Badge>
@@ -214,9 +218,11 @@ export default function Vouchers() {
                             <Button variant="ghost" disabled={busy} onClick={() => run(() => actions.redeemVoucher(v.id), "No se pudo marcar como usado.")}>
                               Marcar usado
                             </Button>
-                            <Button variant="ghost" disabled={busy} onClick={() => run(() => actions.revokeVoucher(v.id), "No se pudo anular.")}>
-                              Anular
-                            </Button>
+                            {isAdmin && (
+                              <Button variant="ghost" disabled={busy} onClick={() => run(() => actions.revokeVoucher(v.id), "No se pudo anular.")}>
+                                Anular
+                              </Button>
+                            )}
                           </div>
                         )}
                       </td>

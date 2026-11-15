@@ -608,3 +608,307 @@ button.card:hover {
     padding: 20px 16px;
   }
 }
+
+/* ---------------- REPORTES: gráficos (HTML/CSS) ----------------
+   Una serie = un tono (el primario del tema); lo demás son grises del tema.
+   Columnas ≤24px con extremo redondeado de 4px y 2px de aire entre ellas. */
+
+.report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.report-filters .field {
+  margin: 0;
+}
+.seg {
+  display: inline-flex;
+  gap: 4px;
+}
+.seg .btn[aria-pressed="true"] {
+  background: var(--c-primary);
+  color: var(--c-text-on-primary);
+  border-color: var(--c-primary);
+}
+.report-refetch {
+  transition: opacity 0.15s ease;
+}
+.report-refetch[aria-busy="true"] {
+  opacity: 0.55;
+}
+.report-note {
+  font-size: 0.8rem;
+  color: var(--c-text-secondary);
+}
+.report-sub {
+  color: var(--c-text-secondary);
+  font-size: 0.82rem;
+  margin: -6px 0 12px;
+}
+.report-sub strong {
+  color: var(--c-text);
+}
+.report-details summary {
+  cursor: pointer;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--c-text-secondary);
+}
+
+.chart {
+  position: relative;
+}
+.chart-plot {
+  position: relative;
+  padding-left: 34px;
+}
+.chart-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--c-border);
+}
+.chart-grid span {
+  position: absolute;
+  left: 0;
+  bottom: 3px;
+  font-size: 0.66rem;
+  color: var(--c-text-muted);
+}
+.chart-cols {
+  position: absolute;
+  inset: 0 0 0 34px;
+  display: flex;
+  align-items: flex-end;
+}
+.chart-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 1px;
+  outline: none;
+}
+.chart-bar {
+  width: 100%;
+  max-width: 24px;
+  background: var(--c-border-strong);
+  border-radius: 4px 4px 0 0;
+  transition: filter 0.12s ease;
+}
+.chart-bar-on {
+  background: var(--c-primary);
+}
+.chart-col:hover .chart-bar,
+.chart-col:focus-visible .chart-bar {
+  filter: brightness(1.35);
+}
+.chart-col:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.chart-val {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -3px);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--c-text);
+  pointer-events: none;
+}
+.chart-x {
+  display: flex;
+  margin: 6px 0 0 34px;
+}
+.chart-x span {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.66rem;
+  color: var(--c-text-secondary);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.chart-tip {
+  position: fixed;
+  z-index: 50;
+  transform: translate(-50%, calc(-100% - 8px));
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: var(--t-radius-sm);
+  background: var(--c-surface-solid);
+  border: 1px solid var(--c-border-strong);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.chart-tip strong {
+  font-size: 0.85rem;
+  color: var(--c-text);
+}
+.chart-tip span {
+  font-size: 0.72rem;
+  color: var(--c-text-secondary);
+}
+
+.heat-grid {
+  display: grid;
+  gap: 2px;
+  align-items: center;
+}
+.heat-hour {
+  font-size: 0.64rem;
+  color: var(--c-text-secondary);
+  text-align: center;
+}
+.heat-day {
+  font-size: 0.7rem;
+  color: var(--c-text-secondary);
+}
+.heat-cell {
+  display: block;
+  height: 24px;
+  border-radius: 3px;
+  outline: none;
+  background: var(--c-surface);
+}
+.heat-cell:hover,
+.heat-cell:focus-visible {
+  outline: 2px solid var(--c-text);
+  outline-offset: -1px;
+}
+.heat-1 { background: color-mix(in srgb, var(--c-primary) 22%, transparent); }
+.heat-2 { background: color-mix(in srgb, var(--c-primary) 40%, transparent); }
+.heat-3 { background: color-mix(in srgb, var(--c-primary) 58%, transparent); }
+.heat-4 { background: color-mix(in srgb, var(--c-primary) 78%, transparent); }
+.heat-5 { background: var(--c-primary); }
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 0.68rem;
+  color: var(--c-text-secondary);
+}
+.heat-legend .heat-cell {
+  width: 18px;
+  height: 12px;
+}
+
+.ranked {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ranked-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 160px) 1fr 44px;
+  align-items: center;
+  gap: 12px;
+  outline: none;
+}
+.ranked-row:focus-visible {
+  outline: 2px solid var(--c-primary);
+  border-radius: 4px;
+}
+.ranked-name {
+  font-size: 0.85rem;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ranked-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--c-surface-alt);
+  overflow: hidden;
+}
+.ranked-fill {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  border-radius: 5px;
+}
+.ranked-val {
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .ranked-row {
+    grid-template-columns: 1fr 44px;
+  }
+  .ranked-track {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-bar,
+  .report-refetch {
+    transition: none;
+  }
+}
+
+
+.report-actions {
+  margin-left: auto;
+}
+
+/* ---------------- IMPRESIÓN / PDF del reporte ----------------
+   Fondo y texto del sistema (Canvas/CanvasText), no colores de la app: el
+   tema oscuro no se imprime. Los tokens se pisan con !important porque
+   `applyTheme()` los fija inline en <html>. */
+@media print {
+  :root {
+    --c-background: Canvas !important;
+    --c-background-alt: Canvas !important;
+    --c-text: CanvasText !important;
+    --c-text-secondary: GrayText !important;
+    --c-text-muted: GrayText !important;
+    --c-surface: transparent !important;
+    --c-surface-alt: color-mix(in srgb, CanvasText 8%, transparent) !important;
+    --c-surface-solid: Canvas !important;
+    --c-border: color-mix(in srgb, CanvasText 16%, transparent) !important;
+    --c-border-strong: color-mix(in srgb, CanvasText 30%, transparent) !important;
+  }
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+  body {
+    background: Canvas;
+    color: CanvasText;
+  }
+  .gym-sidebar,
+  .gym-topbar,
+  .report-filters,
+  .report-details summary {
+    display: none !important;
+  }
+  .gym-shell {
+    display: block;
+  }
+  .gym-main {
+    max-width: none;
+    padding: 0;
+  }
+  .card {
+    break-inside: avoid;
+  }
+  .report-details {
+    display: none;
+  }
+}

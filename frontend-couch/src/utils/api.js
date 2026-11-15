@@ -241,3 +241,17 @@ export function apiCreateVideo(token, { url, title }) {
 export function apiDeleteVideo(token, id) {
   return apiFetch(`/me/coach/videos/${id}`, { method: "DELETE", token });
 }
+
+// ------------------------------------------------------------------
+// REPORTE DEL COACH
+// ------------------------------------------------------------------
+
+/**
+ * GET /me/coach/report?days=7|30|90 → { report }. Sobre los atletas con
+ * relación ACTIVA del coach: entrenamientos (sombra/best-effort), horas y
+ * días, quién necesita atención, y su propia actividad (rutinas, notas,
+ * videos, vouchers). Ver backend App\Support\CoachReport.
+ */
+export function apiGetCoachReport(token, days = 30) {
+  return apiFetch(`/me/coach/report?days=${days}`, { token });
+}

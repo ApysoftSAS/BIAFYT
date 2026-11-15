@@ -3,6 +3,7 @@ import appConfig from "../config/appConfig.js";
 
 const items = [
   { id: "requests", label: "Solicitudes", icon: "◇" },
+  { id: "reports", label: "Reportes", icon: "◩" },
   { id: "gyms", label: "Gimnasios", icon: "▤" },
   { id: "promotions", label: "Promociones", icon: "◈" },
 ];

@@ -226,3 +226,16 @@ export function apiAdminListPromotions(token) {
 export function apiAdminCreatePromotion(token, payload) {
   return apiFetch("/admin/promotions", { method: "POST", body: payload, token });
 }
+
+// ------------------------------------------------------------------
+// REPORTE DE PLATAFORMA (solo is_platform_admin; 404 si no)
+// ------------------------------------------------------------------
+
+/**
+ * GET /admin/reports?days=7|30|90 → { report }. Crecimiento (usuarios nuevos),
+ * actividad (check-ins, usuarios activos hoy/7/30 días), gimnasios (top por
+ * check-ins) y colas de revisión. Solo cifras agregadas.
+ */
+export function apiGetPlatformReport(token, days = 30) {
+  return apiFetch(`/admin/reports?days=${days}`, { token });
+}

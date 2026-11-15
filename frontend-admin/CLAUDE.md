@@ -75,7 +75,7 @@ sistema visual.
 
 Editar gimnasios/sedes, suspender/eliminar gimnasios, gestión de `staff`,
 endpoint para conceder `platform_admin`/`gym_admin`, notificaciones al
-solicitante, billing/pagos, métricas de plataforma, cualquier cambio en las
+solicitante, billing/pagos, cualquier cambio en las
 apps de Cliente/Coach/Gym.
 
 ## Comandos
@@ -95,3 +95,7 @@ Colores solo vía `theme/colors.js`; identidad de app solo vía
 textos y comentarios en español; reutilizar `components/UI.jsx` y las clases
 del shell web (`.gym-shell`, `.gym-table`, `.gym-main-head`, …) antes de crear
 nada nuevo.
+
+## Reportes (2026-11-15)
+
+Pantalla "Reportes": `GET /admin/reports?days=7|30|90` (solo `is_platform_admin`; 404 si no; backend `App\Support\PlatformReport`). Solo cifras agregadas: usuarios nuevos, usuarios activos hoy/7/30 días (activo = check-in o entrenamiento), check-ins por día y por hora, gimnasios con más actividad y colas de revisión. Exporta a CSV (`utils/platformReport.js`) y a PDF con `window.print()`.

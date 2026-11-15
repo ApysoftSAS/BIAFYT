@@ -9,13 +9,14 @@ import Topbar from "./components/Topbar.jsx";
 import Auth from "./screens/Auth.jsx";
 import NoAccess from "./screens/NoAccess.jsx";
 import Requests from "./screens/Requests.jsx";
+import Reports from "./screens/Reports.jsx";
 import Gyms from "./screens/Gyms.jsx";
 import Promotions from "./screens/Promotions.jsx";
 import EquipmentCatalog from "./screens/EquipmentCatalog.jsx";
 import EquipmentRequests from "./screens/EquipmentRequests.jsx";
 import Account from "./screens/Account.jsx";
 
-const SCREENS = ["requests", "gyms", "promotions", "equipmentCatalog", "equipmentRequests", "account"];
+const SCREENS = ["reports", "requests", "gyms", "promotions", "equipmentCatalog", "equipmentRequests", "account"];
 
 function Hero({ subtitle }) {
   return (
@@ -46,7 +47,8 @@ function Shell() {
 
   const view = SCREENS.includes(screen) ? screen : "requests";
   let content;
-  if (view === "gyms") content = <Gyms />;
+  if (view === "reports") content = <Reports />;
+  else if (view === "gyms") content = <Gyms />;
   else if (view === "promotions") content = <Promotions />;
   else if (view === "equipmentCatalog") content = <EquipmentCatalog />;
   else if (view === "equipmentRequests") content = <EquipmentRequests />;

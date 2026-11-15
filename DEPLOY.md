@@ -93,6 +93,7 @@ APP_KEY=                                     # generar: php artisan key:generate
 
 APP_LOCALE=es
 APP_FALLBACK_LOCALE=es
+REPORT_TIMEZONE=America/Bogota           # zona del reporte de Gym Web (horas pico, "hoy"); NO cambia la zona de la app
 
 LOG_LEVEL=error
 LOG_CHANNEL=stack                            # o `stderr` si el host agrega logs de STDERR
@@ -113,6 +114,7 @@ MAIL_MAILER=log                              # el MVP no envía correos
 ```
 
 Notas:
+- **Zona horaria:** la app y la BD se quedan en **UTC** (`config/app.php`, NO es variable de entorno a propósito: los clientes envían fechas ISO con `Z` y otra zona las desfasaría). Solo el reporte de Gym Web convierte a `REPORT_TIMEZONE` (por defecto `America/Bogota`); cámbiala si el gimnasio está en otra zona.
 - **`APP_DEBUG=false`** es obligatorio (en local está en `true`: expone stack
   traces/SQL).
 - **`APP_KEY` NUEVA**: `php artisan key:generate --show` en el host. Nunca
@@ -136,7 +138,7 @@ Notas:
 ```bash
 cd backend
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # aplica las 40 migraciones en la DB vacía
+php artisan migrate --force          # aplica las 41 migraciones en la DB vacía
 php artisan config:cache             # verificado: cachea sin error
 php artisan route:cache              # verificado: cachea sin error
 php artisan view:cache
@@ -147,7 +149,7 @@ Servir `backend/public/` como document root (nginx/apache) o el comando del
 PaaS. Health check del proceso: **`GET /up`** → 200.
 
 **PASS/FAIL:** `php artisan about` → `Environment = production`,
-`Debug Mode = OFF`, `Database = mysql`. `php artisan migrate:status` → **40
+`Debug Mode = OFF`, `Database = mysql`. `php artisan migrate:status` → **41
 `Ran`, 0 `Pending`**.
 
 ### 1.3 Seed del catálogo de ejercicios
@@ -390,7 +392,7 @@ Ejecutar el smoke test completo de **`docs/PRODUCTION_HARDENING_DISCOVERY.md`
 - [ ] `APP_DEBUG=false`, `APP_ENV=production` (`php artisan about`)
 - [ ] `APP_KEY` nueva (≠ local)
 - [ ] Todo sobre **HTTPS**; `http → https` redirige
-- [ ] `php artisan migrate:status` → **40 `Ran`**
+- [ ] `php artisan migrate:status` → **41 `Ran`**
 - [ ] `ExerciseSeeder` ejecutado (`COUNT(exercises) = 22`) **sin** `db:seed`
       pelado (`test@example.com` ausente)
 - [ ] 1 BIAFYT Admin bootstrapeado (`BIAFYT:grant-platform-admin`) y

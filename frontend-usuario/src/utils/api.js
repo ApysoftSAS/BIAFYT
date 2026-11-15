@@ -538,3 +538,25 @@ export function apiGetEquipment() {
 export function apiGetCoachVideos(token) {
   return apiFetch("/coach-videos", { token });
 }
+
+// ------------------------------------------------------------------
+// VOUCHERS DEL ATLETA (beneficios de su gimnasio o coach)
+// ------------------------------------------------------------------
+
+/**
+ * GET /me/vouchers → { vouchers: [{ id, code, title, benefit_type, benefit_value,
+ * benefit_description, applies_to, status: issued|redeemed|revoked|expired, expires_at,
+ * via_code, gym?, coach? }], next_cursor, has_more }. Solo los propios; más recientes primero.
+ */
+export function apiGetMyVouchers(token, cursor) {
+  return apiFetch(`/me/vouchers${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { token });
+}
+
+/**
+ * POST /me/voucher-campaigns/claim — body { code } → { voucher } (201). Canjea un código
+ * compartido que dio el gimnasio y crea el voucher PERSONAL del atleta. 422 si el código no
+ * es válido para él, ya lo canjeó, venció, se cerró o se agotó el cupo. Límite: 20/min.
+ */
+export function apiClaimVoucherCode(token, code) {
+  return apiFetch("/me/voucher-campaigns/claim", { method: "POST", token, body: { code } });
+}

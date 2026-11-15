@@ -1,22 +1,57 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
- * BIAFYT GYM — SESIÓN (foundation)
+ * BIAFYT GYM WEB — SESIÓN + ACCESO DE GYM
  * ---------------------------------------------------------------
- * Versión mínima del `CoachContext` de frontend-couch: SOLO sesión
- * (Sanctum). Sin relaciones, sin dominio Gym, sin roles.
+ * Sesión Sanctum (como frontend-couch) + el acceso de administración de
+ * Gym del slice D-GYM.
  *
- * Persiste `auth` (token + user) en LocalStorage bajo `STORAGE_KEY`
- * (derivada del appId de Gym → clave distinta de las otras apps). Al
- * arrancar, revalida cualquier token contra `GET /auth/me`.
+ * Tras confirmar la sesión, se consulta `GET /me/gym-assignments` (solo
+ * trae assignments ACTIVOS) y se derivan los gyms en los que el usuario es
+ * `gym_admin` o `staff` (`utils/gym.js#gymAccessFrom`). El `gym_id` NUNCA se toma de
+ * LocalStorage ni se inventa: sale exclusivamente de esa respuesta del
+ * backend. Sin `gym_admin` activo → estado `none` ("Sin acceso de Gym").
  *
- * IMPORTANTE: el usuario autenticado aquí es un `User` genérico. NO hay
- * verificación de rol/permiso de Gym — la autorización organizacional
- * (staff / gym_admin / organization scope) está diferida a la fase
- * Coach/Gym (BIAFYT_BUSINESS_CORE.md §6, §46 D8, §47).
+ * `staff` / `gym_admin` NO se conceden desde aquí (bootstrap manual en BD —
+ * D-GYM-3). Este contexto solo LEE el rol para gatear la UI.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { STORAGE_KEY } from "../config/appConfig.js";
-import { apiLogin, apiLogout, apiMe, apiRegister, ApiError } from "../utils/api.js";
+import {
+  apiLogin,
+  apiLogout,
+  apiMe,
+  apiRegister,
+  ApiError,
+  apiGetGymAssignments,
+  apiGetGyms,
+  apiGetGymMembers,
+  apiGetGymCoaches,
+  apiLookupGymUser,
+  apiCreateGymAssignment,
+  apiRevokeGymAssignment,
+  apiGetGymMemberDetail,
+  apiGetGymEquipment,
+  apiSetGymEquipment,
+  apiRemoveGymEquipment,
+  apiGetGymEquipmentRequests,
+  apiCreateGymEquipmentRequest,
+  apiUpdateGymEquipmentRequest,
+  apiGetGymBranches,
+  apiCreateGymBranch,
+  apiRenameGymBranch,
+  apiDeleteGymBranch,
+  apiGetGymVouchers,
+  apiCreateGymVoucher,
+  apiRedeemGymVoucher,
+  apiRevokeGymVoucher,
+  apiGetGymReport,
+  apiGetGymStaff,
+  apiBulkIssueGymVouchers,
+  apiGetGymVoucherCampaigns,
+  apiCreateGymVoucherCampaign,
+  apiCloseGymVoucherCampaign,
+} from "../utils/api.js";
+import { gymAccessFrom } from "../utils/gym.js";
 import { initialsOf } from "../utils/format.js";
 
 const SessionContext = createContext(null);
@@ -26,6 +61,9 @@ const DEFAULT_AUTH = {
   signedIn: false,
   user: { id: null, name: "", email: "", initials: "" },
 };
+
+// status: "loading" | "ok" | "none"
+const DEFAULT_GYM_ACCESS = { status: "loading", gyms: [], activeGymId: null, error: "" };
 
 function loadAuth() {
   try {
@@ -56,16 +94,34 @@ function userFromApi(apiUser) {
 export function SessionProvider({ children }) {
   const [auth, setAuth] = useState(loadAuth);
   const [authChecking, setAuthChecking] = useState(() => Boolean(auth.token));
+  const [gymAccess, setGymAccess] = useState(DEFAULT_GYM_ACCESS);
 
   useEffect(() => {
     try {
+      // Solo `auth` se persiste. El acceso de Gym se recarga del backend
+      // en cada arranque — nunca se confía en un gym_id de LocalStorage.
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth }));
     } catch {
       /* almacenamiento no disponible */
     }
   }, [auth]);
 
-  const endSession = useCallback(() => setAuth({ ...DEFAULT_AUTH }), []);
+  const endSession = useCallback(() => {
+    setAuth({ ...DEFAULT_AUTH });
+    setGymAccess(DEFAULT_GYM_ACCESS);
+  }, []);
+
+  const runAuthed = useCallback(
+    async (fn) => {
+      try {
+        return await fn();
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) endSession();
+        throw err;
+      }
+    },
+    [endSession]
+  );
 
   const registerRemote = useCallback(async ({ name, email, password }) => {
     const data = await apiRegister({ name, email, password });
@@ -99,6 +155,27 @@ export function SessionProvider({ children }) {
     endSession();
   }, [auth.token, endSession]);
 
+  // Acceso de Gym: gyms en los que el usuario es gym_admin activo.
+  const loadGymAccess = useCallback(async () => {
+    if (!auth.token) return;
+    setGymAccess((s) => ({ ...s, status: s.gyms.length ? "ok" : "loading", error: "" }));
+    try {
+      const data = await apiGetGymAssignments(auth.token);
+      const gyms = gymAccessFrom(data.gym_assignments);
+      setGymAccess((prev) => {
+        if (gyms.length === 0) return { status: "none", gyms: [], activeGymId: null, error: "" };
+        const keep = gyms.some((g) => g.id === prev.activeGymId) ? prev.activeGymId : gyms[0].id;
+        return { status: "ok", gyms, activeGymId: keep, error: "" };
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        endSession();
+        return;
+      }
+      setGymAccess({ status: "none", gyms: [], activeGymId: null, error: "No pudimos verificar tu acceso de Gym." });
+    }
+  }, [auth.token, endSession]);
+
   // Arranque: revalida el token persistido antes de confiar en `signedIn`.
   useEffect(() => {
     if (!authChecking) return;
@@ -116,13 +193,82 @@ export function SessionProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cargar el acceso de Gym cuando hay sesión confirmada.
+  useEffect(() => {
+    if (!auth.signedIn || authChecking) return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) loadGymAccess();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.signedIn, authChecking, loadGymAccess]);
+
+  const selectGym = useCallback((gymId) => {
+    setGymAccess((s) => (s.gyms.some((g) => g.id === gymId) ? { ...s, activeGymId: gymId } : s));
+  }, []);
+
+  const activeGymId = gymAccess.activeGymId;
+
+  const gymActions = useMemo(
+    () => ({
+      getMembers: () => runAuthed(() => apiGetGymMembers(auth.token, activeGymId)),
+      getCoaches: () => runAuthed(() => apiGetGymCoaches(auth.token, activeGymId)),
+      lookupUser: (email) => runAuthed(() => apiLookupGymUser(auth.token, activeGymId, email)),
+      createAssignment: (payload) => runAuthed(() => apiCreateGymAssignment(auth.token, activeGymId, payload)),
+      revokeAssignment: (assignmentId) => runAuthed(() => apiRevokeGymAssignment(auth.token, activeGymId, assignmentId)),
+      getMemberDetail: (userId) => runAuthed(() => apiGetGymMemberDetail(auth.token, activeGymId, userId)),
+      getEquipment: () => runAuthed(() => apiGetGymEquipment(auth.token, activeGymId)),
+      setEquipment: (equipmentId, available) =>
+        runAuthed(() => apiSetGymEquipment(auth.token, activeGymId, equipmentId, available)),
+      removeEquipment: (equipmentId) => runAuthed(() => apiRemoveGymEquipment(auth.token, activeGymId, equipmentId)),
+      getEquipmentRequests: () => runAuthed(() => apiGetGymEquipmentRequests(auth.token, activeGymId)),
+      createEquipmentRequest: (payload) =>
+        runAuthed(() => apiCreateGymEquipmentRequest(auth.token, activeGymId, payload)),
+      updateEquipmentRequest: (id, payload) =>
+        runAuthed(() => apiUpdateGymEquipmentRequest(auth.token, activeGymId, id, payload)),
+      // Gestión de sedes (con conteo de miembros) y vouchers del gym.
+      getManagedBranches: () => runAuthed(() => apiGetGymBranches(auth.token, activeGymId)),
+      createBranch: (name) => runAuthed(() => apiCreateGymBranch(auth.token, activeGymId, name)),
+      renameBranch: (id, name) => runAuthed(() => apiRenameGymBranch(auth.token, activeGymId, id, name)),
+      deleteBranch: (id) => runAuthed(() => apiDeleteGymBranch(auth.token, activeGymId, id)),
+      getVouchers: (cursor) => runAuthed(() => apiGetGymVouchers(auth.token, activeGymId, cursor)),
+      createVoucher: (payload) => runAuthed(() => apiCreateGymVoucher(auth.token, activeGymId, payload)),
+      redeemVoucher: (id) => runAuthed(() => apiRedeemGymVoucher(auth.token, activeGymId, id)),
+      revokeVoucher: (id) => runAuthed(() => apiRevokeGymVoucher(auth.token, activeGymId, id)),
+      bulkIssueVouchers: (payload) => runAuthed(() => apiBulkIssueGymVouchers(auth.token, activeGymId, payload)),
+      getCampaigns: () => runAuthed(() => apiGetGymVoucherCampaigns(auth.token, activeGymId)),
+      createCampaign: (payload) => runAuthed(() => apiCreateGymVoucherCampaign(auth.token, activeGymId, payload)),
+      closeCampaign: (id) => runAuthed(() => apiCloseGymVoucherCampaign(auth.token, activeGymId, id)),
+      getStaff: () => runAuthed(() => apiGetGymStaff(auth.token, activeGymId)),
+      getReport: (opts) => runAuthed(() => apiGetGymReport(auth.token, activeGymId, opts)),
+      getBranches: async () => {
+        const { gyms } = await apiGetGyms();
+        return gyms.find((g) => g.id === activeGymId)?.branches ?? [];
+      },
+    }),
+    [auth.token, activeGymId, runAuthed]
+  );
+
   const value = useMemo(
     () => ({
       auth,
       authChecking,
-      actions: { registerRemote, loginRemote, refreshSession, signOut },
+      gymAccess,
+      // Rol de gestión en el gym activo: "gym_admin" | "staff" | null.
+      activeRole: gymAccess.gyms.find((g) => g.id === gymAccess.activeGymId)?.role ?? null,
+      actions: {
+        registerRemote,
+        loginRemote,
+        refreshSession,
+        signOut,
+        selectGym,
+        reloadGymAccess: loadGymAccess,
+        ...gymActions,
+      },
     }),
-    [auth, authChecking, registerRemote, loginRemote, refreshSession, signOut]
+    [auth, authChecking, gymAccess, registerRemote, loginRemote, refreshSession, signOut, selectGym, loadGymAccess, gymActions]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

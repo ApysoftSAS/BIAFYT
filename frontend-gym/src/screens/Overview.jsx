@@ -1,39 +1,84 @@
-import { Screen, Card, Badge, EmptyState } from "../components/UI.jsx";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "../state/SessionContext.jsx";
+import { Card, Panel, Stat, Button } from "../components/UI.jsx";
+import { apiErrorMessage } from "../utils/api.js";
 
 /**
- * RESUMEN — PLACEHOLDER
+ * RESUMEN (Gym Web) — cifras reales del gym administrado (slice D-GYM).
  *
- * Pantalla puramente visual. NO muestra datos reales ni implementa
- * ninguna capacidad del dominio Gym. El contenido real de esta superficie
- * (métricas de la organización, actividad de sedes, etc.) se define en la
- * fase Coach/Gym del roadmap — ver BIAFYT_BUSINESS_CORE.md §5, §46 (D8),
- * §47 (Fase 5).
+ * Deliberadamente simple: sedes, miembros activos y coaches activos,
+ * derivados de las APIs del slice. Sin actividad agregada de la
+ * organización — eso es fase posterior.
  */
-export default function Overview() {
+export default function Overview({ onNavigate }) {
+  const { gymAccess, actions } = useSession();
+  const activeGym = useMemo(
+    () => gymAccess.gyms.find((g) => g.id === gymAccess.activeGymId) ?? null,
+    [gymAccess.gyms, gymAccess.activeGymId]
+  );
+
+  const [counts, setCounts] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [m, c, b] = await Promise.all([actions.getMembers(), actions.getCoaches(), actions.getBranches()]);
+      setCounts({
+        members: (m.members ?? []).length,
+        coaches: (c.coaches ?? []).length,
+        branches: (b ?? []).length,
+      });
+    } catch (e) {
+      setError(apiErrorMessage(e, "No pudimos cargar el resumen."));
+    } finally {
+      setLoading(false);
+    }
+  }, [actions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load, gymAccess.activeGymId]);
+
+  const tiles = [
+    ["Sedes", counts?.branches],
+    ["Miembros", counts?.members],
+    ["Coaches", counts?.coaches],
+  ];
+
   return (
-    <Screen title="Resumen" subtitle="Superficie Gym — foundation">
-      <Card className="placeholder-note">
-        Andamiaje visual. La superficie Gym (organización, sedes, miembros, staff,
-        coaches, administración) se implementa en la fase Coach/Gym del roadmap.
-        Esta pantalla no tiene datos ni funcionalidad.
-      </Card>
+    <div>
+      <div className="gym-main-head">
+        <h2>{activeGym?.name ?? "Organización"}</h2>
+        <p>Resumen de tu organización.</p>
+      </div>
 
-      <Card>
-        <div className="row-between">
-          <div>
-            <p className="micro">Sección</p>
-            <h3>Resumen de la organización</h3>
-            <p className="muted">Disponible en la fase Coach/Gym.</p>
-          </div>
-          <Badge tone="warning">Pronto</Badge>
+      <div className="stack">
+        {error && <p className="text-warning">{error}</p>}
+
+        <div className="gym-grid">
+          {tiles.map(([label, value]) => (
+            <Card key={label}>
+              <Stat label={label} value={loading || value === undefined ? "…" : value} />
+            </Card>
+          ))}
         </div>
-      </Card>
 
-      <EmptyState
-        icon="▤"
-        title="Sin contenido todavía"
-        text="Cuando exista el dominio Gym, aquí verás el estado de tu organización."
-      />
-    </Screen>
+        <Panel title="Gestión" action={<Button variant="ghost" onClick={() => onNavigate("workspace")}>ABRIR ESPACIO</Button>}>
+          <p className="muted">
+            Añade o revoca miembros y coaches, y consulta el estado de un miembro,
+            desde <strong>Espacio</strong>.
+          </p>
+        </Panel>
+      </div>
+    </div>
   );
 }

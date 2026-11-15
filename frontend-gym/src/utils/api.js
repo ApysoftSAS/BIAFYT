@@ -1,13 +1,13 @@
 /**
- * BIAFYT GYM — CLIENTE API (foundation)
+ * BIAFYT GYM WEB — CLIENTE API
  * ---------------------------------------------------------------
  * `fetch` nativo contra el backend Laravel/Sanctum, sin dependencias
- * nuevas. Mismo cliente base que frontend-usuario / frontend-couch,
- * recortado a lo ÚNICO que la foundation usa: autenticación.
+ * nuevas. Mismo cliente base que frontend-usuario / frontend-couch.
  *
- * Reutiliza el contrato `/auth/*` que YA existe (ver backend/routes/api.php).
- * NO define endpoints Gym: el dominio Gym está diferido a la fase
- * Coach/Gym (BIAFYT_BUSINESS_CORE.md §46 D8, §47 Fase 5).
+ * Cubre: autenticación (contrato `/auth/*` existente) y el slice Gym MVP
+ * (D-GYM) — administración de member/coach y snapshot sombra de un miembro,
+ * todo gateado en backend por un `GymAssignment(role=gym_admin)` activo en
+ * el gym de la ruta (ver backend/app/Http/Controllers/Api/V1/GymAdminController.php).
  *
  * La URL base viene de `VITE_API_BASE_URL` (ver `.env.example`) e incluye
  * el prefijo de versión, p.ej. "http://localhost:8000/api/v1".
@@ -90,4 +90,223 @@ export function apiLogout(token) {
 /** GET /auth/me → { user } (200). 401 si el token es inválido/revocado. */
 export function apiMe(token) {
   return apiFetch("/auth/me", { token });
+}
+
+// ------------------------------------------------------------------
+// GYM MVP (D-GYM) — administración de member/coach + snapshot de miembro
+// ------------------------------------------------------------------
+// Todos los endpoints `/me/gym/{gym}/...` responden 404 si el usuario
+// autenticado NO es gym_admin activo de ese gym (mismo anti-IDOR que el
+// resto de la API). El gym_id sale SIEMPRE de la ruta, nunca del body.
+
+/** GET /me/gym-assignments → { gym_assignments: [{ id, role, gym{id,name}, branch{id,name}|null }] }. Solo las ACTIVAS del caller. */
+export function apiGetGymAssignments(token) {
+  return apiFetch("/me/gym-assignments", { token });
+}
+
+/** GET /gyms (público) → { gyms: [{ id, name, branches: [{id,name}] }] }. Catálogo completo — se usa para las sedes del gym administrado. */
+export function apiGetGyms() {
+  return apiFetch("/gyms");
+}
+
+/** GET /me/gym/{gymId}/staff → { staff: [{ id, user{id,name}, role, branch, since }] }. Solo gym_admin (staff → 404). */
+export function apiGetGymStaff(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/staff`, { token });
+}
+
+/** GET /me/gym/{gymId}/members → { members: [{ id, user{id,name}, role, branch{id,name}|null, since }] }. Solo assignments `member` activos. */
+export function apiGetGymMembers(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/members`, { token });
+}
+
+/** GET /me/gym/{gymId}/coaches → { coaches: [...] }. Solo assignments `coach` activos. */
+export function apiGetGymCoaches(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/coaches`, { token });
+}
+
+/** GET /me/gym/{gymId}/user-lookup?email= → { user: { id, name } }. 404 si no hay match exacto. Nunca devuelve el email. */
+export function apiLookupGymUser(token, gymId, email) {
+  return apiFetch(`/me/gym/${gymId}/user-lookup?email=${encodeURIComponent(email)}`, { token });
+}
+
+/**
+ * POST /me/gym/{gymId}/assignments → { assignment } (201 / 200 al reactivar).
+ * Body `{ user_id, role: "member"|"coach", branch_id?: number|null }`.
+ * 422 si role∉{member,coach}, branch de otro gym, member sin branch, o duplicado activo.
+ */
+export function apiCreateGymAssignment(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/assignments`, { method: "POST", body: payload, token });
+}
+
+/** DELETE /me/gym/{gymId}/assignments/{assignmentId} → 204. Solo assignments member|coach del gym; revocar = status inactive. 404 si ajeno/gym_admin/ya inactivo. */
+export function apiRevokeGymAssignment(token, gymId, assignmentId) {
+  return apiFetch(`/me/gym/${gymId}/assignments/${assignmentId}`, { method: "DELETE", token });
+}
+
+/**
+ * GET /me/gym/{gymId}/members/{userId} → { athlete, profile|null, activity_summary, streak, points }.
+ * Doble gate: caller = gym_admin del gym Y target = member activo del gym. 404 si falla cualquiera.
+ * Datos de calidad SOMBRA (mismo snapshot que Coach MVP). No expone email.
+ */
+export function apiGetGymMemberDetail(token, gymId, userId) {
+  return apiFetch(`/me/gym/${gymId}/members/${userId}`, { token });
+}
+
+// ------------------------------------------------------------------
+// INVENTARIO DE GYM (slice D-GYM-INVENTORY) — solo gym_admin del gym
+// ------------------------------------------------------------------
+// El catálogo de equipamiento es GLOBAL (`GET /equipment`); el gym_admin
+// solo marca qué items del catálogo existen en su gym y si están
+// disponibles. No crea items nuevos.
+
+/**
+ * GET /me/gym/{gymId}/equipment → { equipment: [{ id, slug, name, in_inventory, available }] }.
+ * Todo el catálogo global anotado con el estado en ESE gym (gate gym_admin activo → 404 si no).
+ */
+export function apiGetGymEquipment(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/equipment`, { token });
+}
+
+/**
+ * PUT /me/gym/{gymId}/equipment/{equipmentId} → { equipment } (201 al añadir / 200 al actualizar).
+ * Body `{ available: boolean }` (por defecto true = "lo tenemos"). Idempotente.
+ */
+export function apiSetGymEquipment(token, gymId, equipmentId, available) {
+  return apiFetch(`/me/gym/${gymId}/equipment/${equipmentId}`, {
+    method: "PUT",
+    body: { available },
+    token,
+  });
+}
+
+/** DELETE /me/gym/{gymId}/equipment/{equipmentId} → 204. Quita el item del inventario del gym (no toca el catálogo global). */
+export function apiRemoveGymEquipment(token, gymId, equipmentId) {
+  return apiFetch(`/me/gym/${gymId}/equipment/${equipmentId}`, { method: "DELETE", token });
+}
+
+// ------------------------------------------------------------------
+// SOLICITUDES DE EQUIPAMIENTO AL CATÁLOGO GLOBAL (slice D-GYM-EQUIPMENT-REQUEST)
+// ------------------------------------------------------------------
+// El gym NO puede tocar el catálogo global `equipment`. Si necesita una
+// máquina que no existe, la solicita; un BIAFYT Admin la revisa. El gym
+// puede editar y reenviar mientras esté `pending`/`changes_requested`.
+
+/** GET /me/gym/{gymId}/equipment-requests → { equipment_requests: [{ id, status, name, ..., review_note, events, resulting_equipment }] }. */
+export function apiGetGymEquipmentRequests(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/equipment-requests`, { token });
+}
+
+/**
+ * POST /me/gym/{gymId}/equipment-requests → { equipment_request } (201). Estado `pending`.
+ * Body `{ name, brand?, model?, description?, category?, photo_urls?: string[] }`.
+ */
+export function apiCreateGymEquipmentRequest(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/equipment-requests`, { method: "POST", body: payload, token });
+}
+
+/**
+ * PUT /me/gym/{gymId}/equipment-requests/{id} → { equipment_request } (200).
+ * Solo si está `pending`/`changes_requested`. Si estaba `changes_requested`,
+ * vuelve a `pending` (reenvío). 422 en cualquier otro estado.
+ */
+export function apiUpdateGymEquipmentRequest(token, gymId, id, payload) {
+  return apiFetch(`/me/gym/${gymId}/equipment-requests/${id}`, { method: "PUT", body: payload, token });
+}
+
+// ------------------------------------------------------------------
+// SEDES — el gym_admin gestiona las sedes de SU gym
+// ------------------------------------------------------------------
+
+/** GET /me/gym/{gymId}/branches → { branches: [{ id, name, members_count }] }. */
+export function apiGetGymBranches(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/branches`, { token });
+}
+
+/** POST /me/gym/{gymId}/branches — body { name } → { branch } (201). Nombre repetido → 422. */
+export function apiCreateGymBranch(token, gymId, name) {
+  return apiFetch(`/me/gym/${gymId}/branches`, { method: "POST", token, body: { name } });
+}
+
+/** PATCH /me/gym/{gymId}/branches/{id} — body { name } → { branch }. */
+export function apiRenameGymBranch(token, gymId, id, name) {
+  return apiFetch(`/me/gym/${gymId}/branches/${id}`, { method: "PATCH", token, body: { name } });
+}
+
+/** DELETE /me/gym/{gymId}/branches/{id} → 204. 422 si es la única sede o tiene asignaciones. */
+export function apiDeleteGymBranch(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/branches/${id}`, { method: "DELETE", token });
+}
+
+// ------------------------------------------------------------------
+// VOUCHERS — beneficios que el gym emite a sus miembros (sin dinero:
+// BIAFYT no cobra ni calcula precios; el gym confirma el uso).
+// ------------------------------------------------------------------
+
+/** GET /me/gym/{gymId}/vouchers → { vouchers: [...], next_cursor, has_more }. Más recientes primero. */
+export function apiGetGymVouchers(token, gymId, cursor) {
+  return apiFetch(`/me/gym/${gymId}/vouchers${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { token });
+}
+
+/**
+ * POST /me/gym/{gymId}/vouchers → { voucher } (201). Body: { athlete_user_id,
+ * title, benefit_type: percent|fixed|text, benefit_value?, benefit_description,
+ * applies_to?, expires_at? }. El destinatario debe ser miembro activo (404 si no).
+ */
+export function apiCreateGymVoucher(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/vouchers`, { method: "POST", token, body: payload });
+}
+
+/** POST /me/gym/{gymId}/vouchers/{id}/redeem → { voucher }. Solo `issued` y no vencido (422 si no). */
+export function apiRedeemGymVoucher(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/vouchers/${id}/redeem`, { method: "POST", token, body: {} });
+}
+
+/** POST /me/gym/{gymId}/vouchers/{id}/revoke → { voucher }. Solo `issued` (422 si no). */
+export function apiRevokeGymVoucher(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/vouchers/${id}/revoke`, { method: "POST", token, body: {} });
+}
+
+// ------------------------------------------------------------------
+// REPORTES — informe administrativo del gym (solo lectura)
+// ------------------------------------------------------------------
+
+/**
+ * GET /me/gym/{gymId}/reports?days=7|30|90&branch_id= → { report }.
+ * Asistencia (check-ins de los miembros ACTIVOS, desde su alta), horas pico,
+ * mapa día×hora, miembros inactivos, vouchers. Ver backend App\Support\GymReport:
+ * el check-in no guarda el gym, se atribuye por membresía.
+ */
+export function apiGetGymReport(token, gymId, { days = 30, branchId = null } = {}) {
+  const qs = new URLSearchParams({ days: String(days) });
+  if (branchId) qs.set("branch_id", String(branchId));
+  return apiFetch(`/me/gym/${gymId}/reports?${qs}`, { token });
+}
+
+// ------------------------------------------------------------------
+// VOUCHERS — emisión masiva y códigos compartidos con cupo
+// ------------------------------------------------------------------
+
+/**
+ * POST /me/gym/{gymId}/vouchers/bulk → { issued } (201). Mismo voucher para
+ * varios miembros; cada uno recibe el suyo, con su propio código. Body: plantilla
+ * del voucher (+ `valid_days` | `expires_at`) y `scope`: "all" | "branch" (+ branch_id)
+ * | "selected" (+ athlete_user_ids). Todo o nada.
+ */
+export function apiBulkIssueGymVouchers(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/vouchers/bulk`, { method: "POST", token, body: payload });
+}
+
+/** GET /me/gym/{gymId}/voucher-campaigns → { campaigns: [{ id, code, title, …, max_claims, claimed, status }] }. Solo gym_admin. */
+export function apiGetGymVoucherCampaigns(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/voucher-campaigns`, { token });
+}
+
+/** POST /me/gym/{gymId}/voucher-campaigns → { campaign } (201). Plantilla + `code?` (4–20 letras/dígitos) + `max_claims?`. */
+export function apiCreateGymVoucherCampaign(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/voucher-campaigns`, { method: "POST", token, body: payload });
+}
+
+/** POST /me/gym/{gymId}/voucher-campaigns/{id}/close → { campaign }. Detiene nuevos canjes; los ya canjeados siguen. */
+export function apiCloseGymVoucherCampaign(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/voucher-campaigns/${id}/close`, { method: "POST", token, body: {} });
 }

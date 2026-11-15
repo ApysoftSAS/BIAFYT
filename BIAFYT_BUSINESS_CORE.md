@@ -176,7 +176,8 @@ No asumir que un usuario solamente "selecciona un gimnasio" y eso equivale autom
    Sedes). Reglas: nombre único dentro del gym; un gym conserva siempre al
    menos una sede; una sede con miembros o historial de asignaciones no se
    elimina (se renombra). Reemplaza la parte de D-GYM-8 que dejaba `Branch`
-   solo por bootstrap. `staff` sigue DORMANTE y PENDIENTE DE DECISIÓN: sus
+   solo por bootstrap. La app Gym MÓVIL (`frontend-gym`) ofrece desde esta
+   fecha la misma gestión que Gym Web (reemplaza D-GYM-6). `staff` sigue DORMANTE y PENDIENTE DE DECISIÓN: sus
    capacidades no están definidas.
 
 Conceptualmente:
@@ -358,6 +359,13 @@ Los duelos deben convertirse en una fuente real del ledger cuando llegue su fase
 
 14. Duelos
     Los duelos son una experiencia competitiva real entre usuarios.
+
+    **Vencimiento (2026-11-15, PROPUESTA de implementación pendiente de
+    confirmar por negocio):** un reto sin responder vence a los 3 días y un
+    duelo aceptado sin resolver a los 7 días desde la aceptación (estado
+    `expired`: sin ganador, sin movimiento de puntos, apuesta devuelta). Los
+    plazos son constantes del backend, fáciles de cambiar. Los avisos al rival
+    son notificaciones in-app (polling), no push nativo.
 
 No deben implementarse como:
 
@@ -1486,6 +1494,57 @@ NO CUBRE / PENDIENTE DE DECISIÓN:
 - Flujo de contratación: hoy el atleta NO puede solicitar a un coach desde
   la app (la relación la inicia el coach por ID).
 - Etiquetar videos por ejercicio/máquina.
+
+54. Reportes administrativos del Gym — IMPLEMENTADO (2026-11-15)
+
+El `gym_admin` ve en Gym Web: asistencia (check-ins) por día, hora y día×hora,
+horas pico, por sede, miembros sin asistir, entrenamientos y vouchers.
+
+Reglas y límites de los datos:
+- El check-in no registra el gimnasio. Se ATRIBUYE al gym por la membresía
+  activa (`member`) de quien lo hizo, desde su fecha de alta. Quien es miembro
+  de dos gyms cuenta en ambos. Una membresía revocada deja de contar.
+- Solo hay datos de quienes usan la app BIAFYT y hacen check-in: no es un
+  control de acceso físico.
+- "Dentro ahora" es un estimado y "miembro sin asistir" usa 14 días: valores
+  PROPUESTOS por implementación, pendientes de confirmar por negocio.
+- Cuando la app de usuario se conecte a gimnasios reales (hoy usa mocks) el
+  check-in debería guardar `gym_id`/`branch_id` y este reporte dejar de inferir.
+- También existen (2026-11-15) el reporte del coach sobre sus atletas activos (app Coach), el de plataforma (BIAFYT Admin, solo agregados) y la exportación a CSV / PDF (imprimir) en Gym Web y Admin; sin exportación en las apps nativas.
+
+55. Rol staff (recepción) — IMPLEMENTADO (2026-11-15), capacidades PROPUESTAS
+
+El `gym_admin` concede y revoca `staff` en su gym (Gym Web → Espacio). Staff
+puede: ver miembros y coaches, dar de alta y baja MIEMBROS, ver el estado de un
+miembro y marcar un voucher como usado. Staff NO puede: conceder/revocar coach
+o staff, ver la lista de staff, gestionar sedes ni inventario, emitir o anular
+vouchers, ni ver Reportes. Staff no hereda permisos de gym_admin. Estas
+capacidades las propuse yo (el core pedía definirlas explícitamente): pendientes
+de confirmar por negocio. Una persona con ambos roles conserva los de admin.
+
+56. Vouchers: vigencia, emisión masiva y códigos compartidos — IMPLEMENTADO (2026-11-15)
+
+Sigue siendo un beneficio entre gimnasio/coach y atleta, SIN dinero en BIAFYT
+(el gimnasio confirma el uso: "Marcar usado").
+
+- Vigencia: una fecha o "N días desde hoy" (7/15/30/90) cuentan hasta el FINAL
+  de ese día en la zona del gimnasio (`REPORT_TIMEZONE`). Antes una fecha
+  vencía al inicio del día (error corregido). Un voucher no puede crearse ya
+  vencido.
+- Emisión masiva (gym_admin): el mismo voucher a todos los miembros activos, a
+  los de una sede o a los elegidos; cada uno recibe el SUYO (código propio,
+  se usa y anula por separado). Todo o nada; máximo 500 por envío.
+- Código compartido (gym_admin): un código (elegido o generado) con cupo
+  opcional ("los primeros N") y vencimiento. Solo miembros activos del gimnasio
+  lo canjean, una vez cada uno, en la app del usuario; al canjear reciben su
+  voucher personal. Un voucher anulado sigue ocupando su cupo. Cerrar un código
+  detiene nuevos canjes sin tocar los ya canjeados. Un código inexistente y
+  uno de otro gimnasio responden igual (no se puede sondear); límite de 20
+  intentos por minuto.
+- La app del usuario ahora tiene la pantalla Vouchers (antes solo había API).
+- Staff: solo marca usados; no emite, no anula, no crea códigos.
+- NO existe: vouchers de un coach por código compartido ni emisión masiva del
+  coach; canje por QR; notificación al miembro cuando recibe un voucher.
 
 Estado: Aprobado como fuente de verdad conceptual
 Implementación: Parcial; las decisiones marcadas "NO IMPLEMENTADO" no deben inferirse como código existente.

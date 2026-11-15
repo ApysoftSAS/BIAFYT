@@ -30,9 +30,13 @@ const STATUS_LABEL = {
   rejected: "Rechazado",
   cancelled: "Cancelado",
   unvalidated: "No validado",
+  expired: "Vencido",
 };
 
-const TERMINAL = ["finished", "rejected", "cancelled", "unvalidated"];
+const TERMINAL = ["finished", "rejected", "cancelled", "unvalidated", "expired"];
+
+// Fecha límite que informa el backend (`expires_at`); null si ya terminó.
+const expiryHint = (d) => (d.expires_at ? `Vence el ${formatDate(d.expires_at)}.` : "");
 
 export default function Duels({ onStartDuelWorkout, focusDuelId, onClearFocus }) {
   const { state, me, gym, branch, duels, points, actions } = useApp();
@@ -321,7 +325,7 @@ export default function Duels({ onStartDuelWorkout, focusDuelId, onClearFocus })
               </p>
             </Card>
             <Card>
-              <p className="muted">Si aceptas, se bloquearán {formatPoints(duel.stake)} de tus puntos hasta que termine el duelo.</p>
+              <p className="muted">Si aceptas, se bloquearán {formatPoints(duel.stake)} de tus puntos hasta que termine el duelo. {expiryHint(duel)}</p>
               <Stat label="Tus puntos disponibles" value={formatPoints(localPoints)} />
             </Card>
             {error && <p className="micro text-warning">{error}</p>}
@@ -365,7 +369,7 @@ export default function Duels({ onStartDuelWorkout, focusDuelId, onClearFocus })
             <Card>
               <strong>Esperando a que {rivalName} acepte el reto.</strong>
               <p className="muted">
-                {mod.name} · {formatPoints(duel.stake)} puntos bloqueados
+                {mod.name} · {formatPoints(duel.stake)} puntos bloqueados. {expiryHint(duel)}
               </p>
             </Card>
             {error && <p className="micro text-warning">{error}</p>}
@@ -413,7 +417,7 @@ export default function Duels({ onStartDuelWorkout, focusDuelId, onClearFocus })
             </Card>
             <Card className="soft">
               <strong>Ambos realizan la MISMA rutina.</strong>
-              <p className="muted">El duelo requiere GPS activo en tu sede. Sin validación no se entregan puntos.</p>
+              <p className="muted">El duelo requiere GPS activo en tu sede. Sin validación no se entregan puntos. {expiryHint(duel)} Si nadie lo completa a tiempo, se devuelven los puntos.</p>
             </Card>
 
             {duel.you_submitted ? (
@@ -465,10 +469,15 @@ export default function Duels({ onStartDuelWorkout, focusDuelId, onClearFocus })
               <Badge tone="error">DUELO NO VALIDADO</Badge>
               <p className="muted">No se cumplieron las condiciones de validación (GPS, ubicación o tiempos). Se devolvieron los puntos apostados.</p>
             </Card>
-          ) : duel.status === "rejected" || duel.status === "cancelled" ? (
+          ) : ["rejected", "cancelled", "expired"].includes(duel.status) ? (
             <Card>
               <Badge tone="default">{STATUS_LABEL[duel.status].toUpperCase()}</Badge>
-              <p className="muted">El duelo no llegó a disputarse. Los puntos bloqueados fueron devueltos.</p>
+              <p className="muted">
+                {duel.status === "expired"
+                  ? "Nadie completó el duelo a tiempo."
+                  : "El duelo no llegó a disputarse."}{" "}
+                Los puntos bloqueados fueron devueltos.
+              </p>
             </Card>
           ) : (
             <>
@@ -503,8 +512,14 @@ export default function Duels({ onStartDuelWorkout, focusDuelId, onClearFocus })
               )}
               <Card className={won ? "win" : draw ? "soft" : "lose"}>
                 <h2>
-                  {draw ? "±0" : won ? "+" : "−"}
-                  {draw ? "" : formatPoints(duel.stake)} {draw ? "" : "SOMA POINTS"}
+                  {duel.stake <= 0 ? (
+                    "SIN PUNTOS EN JUEGO"
+                  ) : (
+                    <>
+                      {draw ? "±0" : won ? "+" : "−"}
+                      {draw ? "" : formatPoints(duel.stake)} {draw ? "" : "SOMA POINTS"}
+                    </>
+                  )}
                 </h2>
                 <p className="muted">
                   {draw ? "Se devolvió tu apuesta." : won ? "Recibiste los puntos apostados." : "Perdiste los puntos apostados."}
@@ -535,7 +550,9 @@ function DuelRow({ d, me, onOpen }) {
   const lost = d.status === "finished" && d.winner_user_id != null && d.winner_user_id !== me.id;
   const tone =
     d.status === "pending" ? "warning" : d.status === "finished" ? (won ? "success" : lost ? "error" : "default") : "accent";
-  const badge = won ? `+${formatPoints(d.stake)}` : lost ? `−${formatPoints(d.stake)}` : STATUS_LABEL[d.status];
+  // Un duelo sin apuesta (0 puntos) no muestra "±0": solo el resultado.
+  const stake = d.stake > 0 ? formatPoints(d.stake) : null;
+  const badge = won ? (stake ? `+${stake}` : "Ganado") : lost ? (stake ? `−${stake}` : "Perdido") : STATUS_LABEL[d.status];
   return (
     <Card onClick={onOpen}>
       <div className="row-between">

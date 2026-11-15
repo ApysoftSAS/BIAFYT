@@ -326,4 +326,39 @@ describe("App (Admin)", () => {
     expect(started).toBe(true);
     expect(container.textContent).toContain("En revisión");
   });
+
+  it("Reportes: muestra usuarios activos, gimnasios con más actividad y colas de revisión", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth: { token: "t", signedIn: true, user: { id: 1, name: "A" } } }));
+    const byHour = Array(24).fill(0);
+    byHour[18] = 5;
+    vi.stubGlobal("fetch", mockApi({
+      "/auth/me": { user: { id: 1, name: "A", email: "a@x.test", is_platform_admin: true } },
+      "/admin/gym-registration-requests": { gym_registration_requests: [] },
+      "/admin/reports": { report: {
+        period: { days: 30, from: "2026-10-17", to: "2026-11-15", timezone: "America/Bogota" },
+        totals: { users: 40, new_users: 6, gyms: 2, new_gyms: 1, members: 25, coaches: 3, staff: 1, check_ins: 5, workouts: 4, active_users_period: 12, duels_finished: 2, vouchers_issued: 3, vouchers_redeemed: 1, promotions_active: 1 },
+        active_users: { today: 2, last_7_days: 7, last_30_days: 12 },
+        new_users_by_day: [{ date: "2026-11-14", count: 2 }, { date: "2026-11-15", count: 4 }],
+        check_ins_by_day: [{ date: "2026-11-14", count: 1 }, { date: "2026-11-15", count: 4 }],
+        check_ins_by_hour: byHour,
+        top_gyms: [{ id: 1, name: "KAIROS GYM", members: 20, coaches: 2, check_ins: 5, active_members: 4 }],
+        queues: { gym_registrations: { pending: 2, approved: 1, rejected: 0 }, equipment_requests: { pending: 0, in_review: 1 } },
+      } },
+    }));
+
+    await act(async () => {
+      createRoot(container).render(<App />);
+    });
+    await flush();
+    const nav = [...container.querySelectorAll(".gym-nav-item")].find((b) => b.textContent.includes("Reportes"));
+    await act(async () => nav.click());
+    await flush();
+    await flush();
+
+    expect(container.textContent).toContain("Usuarios activos");
+    expect(container.textContent).toContain("KAIROS GYM");
+    expect(container.textContent).toContain("Solicitudes de registro de gimnasio");
+    expect(container.textContent).toContain("Pendientes");
+    expect(container.textContent).toContain("sin datos personales");
+  });
 });

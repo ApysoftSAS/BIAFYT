@@ -3,54 +3,33 @@
 App **Gym** (móvil) de BIAFYT. Una de las tres superficies front del
 producto (ver `../CLAUDE.md`); el backend es `../backend/` (Laravel).
 
-## ESTADO: Gym UI Foundation — la app móvil NO entra en el Gym MVP
+## ESTADO: gestión del gym_admin portada desde Gym Web (2026-11-14)
 
-Esto es un **bootstrap visual/técnico**, NO el producto Gym. Autorizado
-explícitamente por el usuario como "Gym UI Foundation", distinta de la
-fase Coach/Gym del roadmap (`../BIAFYT_BUSINESS_CORE.md` §46, §47
-Fase 5; `../PROJECT_STATE.md` → `FASE: Gym UI Foundation`).
+Por decisión explícita del usuario (reemplaza D-GYM-6 para esta app) la
+app móvil ya NO es solo shell: tiene las MISMAS funciones que
+`../frontend-gym-web/` — Resumen, Espacio (miembros/coaches + detalle de
+miembro), Sedes, Inventario (+ solicitudes de equipo), Vouchers y Cuenta —
+con el mismo gate (solo un `gym_admin` activo entra; si no, "Sin acceso de
+Gym").
 
-**El slice Gym MVP (D-GYM) se implementó SOLO en `../frontend-gym-web/`**
-(superficie web) por decisión explícita (D-GYM-6). Esta app **móvil**
-sigue siendo solo shell + login + placeholders; su producto queda para una
-fase posterior. NO portar aquí la gestión de miembros/coaches ni el
-`GymAdminController` sin una decisión nueva.
+**Cómo está hecho:** `src/utils/{api,gym}.js`, `src/state/SessionContext.jsx`
+y `src/screens/{Overview,Workspace,MemberDetail,Branches,Inventory,Vouchers,
+NoGymAccess}.jsx` son **copias textuales de `frontend-gym-web`** (sin
+monorepo: si cambian allá, re-copiar a mano). Lo propio de esta app es el
+shell móvil: `App.jsx` (envuelve cada pantalla en `.screen > .screen-body`,
+botón atrás de Android), `components/BottomTabs.jsx` (6 pestañas),
+`components/UI.jsx` (+ `Panel`) y el bloque "GESTIÓN GYM" al final de
+`App.css` (clases `.gym-*` en una columna; las tablas se desplazan en
+horizontal). Endpoints, authz y shapes: ver `../frontend-gym-web/CLAUDE.md`.
+
+Pendiente: rol `staff` (capacidades sin definir), afinar las tablas para
+pantallas pequeñas, `npx cap add android` y prueba en dispositivo real.
 
 Nota de identidad (D-GYM-9): `frontend-gym/` es la app **móvil/Capacitor**
 (`appId com.apysoft.gymprofit.gym`, bottom-tabs); `frontend-gym-web/` es la
-app **web** (sin Capacitor). El texto antiguo de `BIAFYT_BUSINESS_CORE.md`
-que decía lo contrario está corregido.
+app **web** (sin Capacitor).
 
-**Diferido a la fase Coach/Gym — NO implementar aquí sin una decisión
-explícita nueva:** dominio Gym (Organization, Branch, Members, Staff,
-Coaches, gym_admin), permisos, autorización, policies, memberships,
-ownership, dashboards con datos reales, métricas, gestión de programas/
-atletas, D5, D8, endpoints/migraciones/modelos backend.
-
-Todas las pantallas de dominio (`Overview`, `Workspace`) son **placeholders**
-explícitos. Solo `Auth` y `Account` tienen comportamiento real.
-
-`lint`, `test` y `build` en verde.
-
-## Qué existe
-
-| Elemento | Estado |
-|---|---|
-| Bootstrap React 19 + Vite 8 + Capacitor 8 (`appId com.apysoft.gymprofit.gym`) | Real |
-| Shell móvil: bottom-tabs (Resumen / Espacio / Cuenta) + botón atrás Android | Real |
-| Login / registro / logout (`POST /auth/{login,register,logout}`, `GET /auth/me`) | **Real** — contrato Sanctum existente, sin endpoints nuevos |
-| Sesión persistida (`SessionContext`, token en LocalStorage, revalidación al arrancar) | Real |
-| Pantallas `Overview` / `Workspace` | **Placeholder** — sin datos, sin acciones |
-| Rol / permiso de Gym | **NO existe** — el `User` autenticado es genérico (D5 dormante) |
-
-## Arquitectura
-
-- `src/state/SessionContext.jsx` — versión mínima del `CoachContext` de
-  `frontend-couch`: SOLO `auth` (Sanctum). Sin dominio, sin roles.
-- `src/utils/api.js` — cliente `fetch` recortado a `/auth/*`. No define
-  endpoints Gym.
-- Navegación por estado (`useState` en `App.jsx`), sin router library —
-  misma convención que `frontend-usuario` / `frontend-couch`.
+`lint`, `test` (18) y `build` en verde.
 
 ## Sistema visual (heredado de `frontend-usuario`)
 
@@ -87,3 +66,9 @@ npm run test
 Las mismas que `../frontend-usuario/CLAUDE.md`: colores solo vía
 `theme/colors.js`, identidad de app solo vía `config/appConfig.js`,
 textos y comentarios en español, reutilizar `components/UI.jsx`.
+
+## Reportes y Staff (2026-11-15)
+
+Portados de `frontend-gym-web` (copias textuales): `Reports.jsx`, `Workspace.jsx` (gestión de staff), `Vouchers.jsx`, `utils/{api,gym,report}.js`, `Charts.jsx`, `SessionContext.jsx`. Lo propio de esta app: pestaña "Reportes" (7 pestañas para gym_admin; un `staff` solo ve las que `canOpen` permite) y los estilos de gráficos al final de `App.css` (indicadores en 2 columnas). Sin exportar CSV/PDF en la app nativa. Sin verificar en pantalla en esta ronda (solo lint/test/build).
+
+Vouchers (2026-11-15): `Vouchers.jsx`, `VoucherIssuePanel.jsx` y `utils/voucher.js` son copias de `frontend-gym-web` (emisión masiva, códigos compartidos, vigencia).

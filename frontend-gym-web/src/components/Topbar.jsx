@@ -2,6 +2,7 @@ import { useSession } from "../state/SessionContext.jsx";
 
 const TITLES = {
   overview: "Resumen",
+  reports: "Reportes",
   workspace: "Espacio",
   branches: "Sedes",
   inventory: "Inventario",

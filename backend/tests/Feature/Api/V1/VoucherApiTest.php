@@ -149,7 +149,7 @@ class VoucherApiTest extends TestCase
 
         $this->assertSame([
             'id', 'code', 'issuer_type', 'gym', 'coach', 'athlete', 'title',
-            'benefit_type', 'benefit_value', 'benefit_description', 'applies_to',
+            'benefit_type', 'benefit_value', 'benefit_description', 'applies_to', 'via_code',
             'status', 'expires_at', 'redeemed_at', 'redemption_note',
             'revoked_at', 'revoke_reason', 'created_at',
         ], array_keys($body));

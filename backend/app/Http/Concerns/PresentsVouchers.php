@@ -4,6 +4,7 @@ namespace App\Http\Concerns;
 
 use App\Models\Voucher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -30,8 +31,11 @@ trait PresentsVouchers
             'benefit_description' => ['required', 'string', 'max:2000'],
             'applies_to' => ['nullable', 'string', 'max:255'],
             'expires_at' => ['nullable', 'date'],
+            // "Valid for N days from today" — an alternative to a fixed date.
+            'valid_days' => ['nullable', 'integer', 'min:1', 'max:365'],
         ]);
 
+        $expiresAt = $this->voucherExpiry($validated);
         $type = $validated['benefit_type'];
         $value = $validated['benefit_value'] ?? null;
 
@@ -57,8 +61,51 @@ trait PresentsVouchers
             'benefit_value' => $value,
             'benefit_description' => $validated['benefit_description'],
             'applies_to' => $validated['applies_to'] ?? null,
-            'expires_at' => $validated['expires_at'] ?? null,
+            'expires_at' => $expiresAt,
         ];
+    }
+
+    /**
+     * The moment a voucher stops being usable, in UTC (the app's zone), or
+     * null for "never expires".
+     *
+     * A bare date ("2026-11-20") or `valid_days` means THROUGH THE END OF THAT
+     * DAY on the gym's wall clock (`report_timezone`): "expires on the 20th"
+     * must still work on the 20th. (A bare date used to parse as the START of
+     * the day in UTC, so it died the evening before in Colombia.) A full
+     * timestamp is taken as given.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function voucherExpiry(array $validated): ?Carbon
+    {
+        $tz = config('app.report_timezone');
+        $date = $validated['expires_at'] ?? null;
+        $days = $validated['valid_days'] ?? null;
+
+        if ($date !== null && $days !== null) {
+            throw ValidationException::withMessages([
+                'valid_days' => ['Use either an expiry date or valid_days, not both.'],
+            ]);
+        }
+
+        if ($days !== null) {
+            $expiresAt = Carbon::now($tz)->addDays((int) $days)->endOfDay();
+        } elseif ($date !== null) {
+            $expiresAt = preg_match('/^\d{4}-\d{2}-\d{2}$/', trim((string) $date))
+                ? Carbon::parse(trim((string) $date), $tz)->endOfDay()
+                : Carbon::parse($date);
+        } else {
+            return null;
+        }
+
+        if ($expiresAt->isPast()) {
+            throw ValidationException::withMessages([
+                'expires_at' => ['The expiry must be in the future.'],
+            ]);
+        }
+
+        return $expiresAt->setTimezone(config('app.timezone'));
     }
 
     /**
@@ -96,6 +143,8 @@ trait PresentsVouchers
             'benefit_value' => $voucher->benefit_value,
             'benefit_description' => $voucher->benefit_description,
             'applies_to' => $voucher->applies_to,
+            // True when the athlete obtained it by claiming a shared code.
+            'via_code' => $voucher->campaign_id !== null,
             // Derived: `expired` when past expires_at while still issued.
             'status' => $voucher->effectiveStatus(),
             'expires_at' => $voucher->expires_at,

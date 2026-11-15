@@ -69,6 +69,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Report timezone
+    |--------------------------------------------------------------------------
+    |
+    | The application stays in UTC (clients send ISO timestamps with "Z"; a
+    | different app timezone would shift them). ONLY the reports (gym, coach, platform)
+    | convert to this zone, so "peak hour" and "today" follow the local
+    | wall clock. Default: Colombia.
+    |
+    */
+
+    'report_timezone' => env('REPORT_TIMEZONE', 'America/Bogota'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

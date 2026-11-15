@@ -6,8 +6,8 @@ import appConfig from "../config/appConfig.js";
 /**
  * SIN ACCESO DE GYM
  *
- * El usuario está autenticado pero no tiene ningún `GymAssignment(role=
- * gym_admin, status=active)`. No se muestra ningún dato de ningún gym: el
+ * El usuario está autenticado pero no tiene ningún `GymAssignment` de
+ * `gym_admin` ni `staff` activo. No se muestra ningún dato de ningún gym: el
  * rol se concede a mano en la BD (D-GYM-3, bootstrap manual).
  */
 export default function NoGymAccess() {
@@ -24,12 +24,12 @@ export default function NoGymAccess() {
 
         <div className="stack" style={{ marginTop: 16, textAlign: "left" }}>
           <p className="muted">
-            Tu cuenta ({auth.user.email}) no tiene un rol <strong>gym_admin</strong> activo
+            Tu cuenta ({auth.user.email}) no tiene un rol <strong>gym_admin</strong> ni <strong>staff</strong> activo
             en ninguna organización, así que no hay ningún panel que mostrar.
           </p>
           <p className="micro">
-            El rol de administrador de gimnasio lo concede el equipo de BIAFYT.
-            Cuando lo tengas, vuelve a entrar.
+            El rol de administrador lo concede el equipo de BIAFYT; el de staff, el
+            administrador de tu gimnasio. Cuando lo tengas, vuelve a entrar.
           </p>
           {gymAccess.error && <p className="text-warning">{gymAccess.error}</p>}
 

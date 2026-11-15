@@ -171,3 +171,7 @@ Las mismas que `frontend-usuario/CLAUDE.md`: colores solo vía
 `theme/colors.js`, identidad de app solo vía `config/appConfig.js`, textos
 y comentarios en español, mobile-first, reutilizar `components/UI.jsx`
 antes de crear componentes nuevos.
+
+## Reportes (2026-11-15)
+
+Pestaña "Reportes" (`screens/Reports.jsx`): `GET /me/coach/report?days=7|30|90` (backend `App\Support\CoachReport`) sobre los atletas con relación ACTIVA: entrenamientos (calidad sombra), cuándo entrenan (horas/días), lista de atletas con racha y "Atender" (14+ días sin entrenar), y la actividad propia del coach (rutinas, notas, videos, vouchers). Gráficos: `components/Charts.jsx` (copia de gym-web). Sin exportación.

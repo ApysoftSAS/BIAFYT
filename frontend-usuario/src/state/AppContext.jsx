@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { STORAGE_KEY } from "../config/appConfig.js";
 import { gyms as seedGyms, GYM_STATUS, findGym, findBranch } from "../data/gyms.js";
 import { communityUsers } from "../data/users.js";
+import { duelNotice } from "../utils/duelNotices.js";
 import { buildRoutine } from "../data/training.js";
 import { exercises as localExercises } from "../data/exercises.js";
 import { loadExerciseCatalog } from "../data/exerciseCatalog.js";
@@ -43,6 +44,8 @@ import { initialsOf } from "../utils/format.js";
 const AppContext = createContext(null);
 
 const SCHEMA_VERSION = 2;
+// Cada cuánto se consulta `GET /me/duels` en segundo plano (retos/resultados).
+const DUEL_POLL_MS = 45000;
 
 // Código de canje de un reward (p.ej. "SOMA-X8K29"). Sin caracteres
 // ambiguos (0/O, 1/I). Pertenece al reward — no hay catálogo aparte.
@@ -589,6 +592,9 @@ export function AppProvider({ children }) {
     setState((prev) => {
       const channel = notification.channel ?? "training";
       if (prev.identity.settings.notifications[channel] === false) return prev;
+      // `ref` = aviso idempotente: si ya existe una notificación con ese ref
+      // (p.ej. `duel:7:finished`), no se repite — recargas/polling/reinicios.
+      if (notification.ref && prev.identity.notifications.some((n) => n.ref === notification.ref)) return prev;
       feedback(notification.tone ?? "start", {
         sound: prev.device.settings.sound,
         vibration: prev.device.settings.vibration,
@@ -913,7 +919,7 @@ export function AppProvider({ children }) {
   const [duels, setDuels] = useState({ list: [], status: "idle" });
 
   const reconcileDuels = useCallback((apiDuels) => {
-    const TERMINAL = ["finished", "unvalidated", "rejected", "cancelled"];
+    const TERMINAL = ["finished", "unvalidated", "rejected", "cancelled", "expired"];
     setState((prev) => {
       const meId = prev.identity.user.id;
       const records = prev.identity.duels.map((r) => ({ ...r }));
@@ -933,7 +939,7 @@ export function AppProvider({ children }) {
             ...user,
             lockedPoints: Math.max(0, user.lockedPoints - rec.stake),
             // won → devuelve el doble (net +stake); lost → nada (net -stake);
-            // resto (empate/no validado/rechazo/cancelación) → devolución.
+            // resto (empate/no validado/rechazo/cancelación/vencido) → devolución.
             points: user.points + (won ? rec.stake * 2 : lost ? 0 : rec.stake),
           };
           if (won) wins += 1;
@@ -957,27 +963,38 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // `silent` = recarga de fondo (polling): no pasa por "loading"/"error" y
+  // solo revalida el saldo si algún duelo cambió de estado.
+  const duelsSeen = useRef(new Map());
   const loadDuels = useCallback(
-    async (token) => {
+    async (token, { silent = false } = {}) => {
       if (!token) {
+        duelsSeen.current = new Map();
         setDuels({ list: [], status: "idle" });
         return [];
       }
-      setDuels((s) => ({ ...s, status: "loading" }));
+      if (!silent) setDuels((s) => ({ ...s, status: "loading" }));
       try {
         const data = await apiGetDuels(token);
         const list = Array.isArray(data?.duels) ? data.duels : [];
         reconcileDuels(list);
         setDuels({ list, status: "ok" });
+        // Avisos de lo que hizo la otra persona / cerró el duelo (idempotentes).
+        for (const d of list) {
+          const notice = duelNotice(d);
+          if (notice) notify({ channel: "duels", ...notice });
+        }
         // Un duelo resuelto (won/lost) movió el ledger — revalida el saldo.
-        loadPoints(token);
+        const changed = list.some((d) => duelsSeen.current.get(d.id) !== d.status);
+        duelsSeen.current = new Map(list.map((d) => [d.id, d.status]));
+        if (!silent || changed) loadPoints(token);
         return list;
       } catch {
-        setDuels((s) => ({ ...s, status: "error" }));
+        if (!silent) setDuels((s) => ({ ...s, status: "error" }));
         return [];
       }
     },
-    [reconcileDuels, loadPoints]
+    [reconcileDuels, loadPoints, notify]
   );
 
   useEffect(() => {
@@ -987,6 +1004,22 @@ export function AppProvider({ children }) {
     });
     return () => {
       cancelled = true;
+    };
+  }, [state.auth.signedIn, state.auth.token, loadDuels]);
+
+  // Polling de fondo: el rival puede retarte, aceptar o terminar mientras la
+  // app está abierta. Solo con la pestaña visible; también al volver a ella.
+  useEffect(() => {
+    if (!state.auth.signedIn || !state.auth.token) return undefined;
+    const token = state.auth.token;
+    const tick = () => {
+      if (document.visibilityState === "visible") loadDuels(token, { silent: true });
+    };
+    const id = setInterval(tick, DUEL_POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
     };
   }, [state.auth.signedIn, state.auth.token, loadDuels]);
 

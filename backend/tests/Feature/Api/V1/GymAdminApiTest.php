@@ -326,7 +326,7 @@ class GymAdminApiTest extends TestCase
         $this->assertDatabaseMissing('gym_assignments', ['user_id' => $target->id, 'role' => 'gym_admin']);
     }
 
-    public function test_store_assignment_rejects_role_staff(): void
+    public function test_store_assignment_rejects_an_unknown_role(): void
     {
         $gym = $this->gym();
         $admin = $this->admin($gym);
@@ -334,7 +334,7 @@ class GymAdminApiTest extends TestCase
 
         $this->actingAs($admin, 'sanctum')->postJson("/api/v1/me/gym/{$gym->id}/assignments", [
             'user_id' => $target->id,
-            'role' => 'staff',
+            'role' => 'owner',
         ])->assertStatus(422)->assertJsonValidationErrors(['role']);
     }
 

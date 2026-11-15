@@ -25,9 +25,10 @@ front-end apps plus one backend:
   editing of the athlete; the relationship is not gym-scoped. See
   `frontend-couch/CLAUDE.md`.
 - `frontend-gym/`: the Gym mobile application surface. React 19 + Vite +
-  Capacitor. Its UI foundation may be prepared before the Coach/Gym product
-  phase, but no Gym business logic, authorization or domain workflows are
-  implemented before that phase.
+  Capacitor. Same gym_admin management as `frontend-gym-web/` (members,
+  coaches, branches, inventory, vouchers): its API client, session context
+  and screens are verbatim copies of the web app inside a mobile bottom-tab
+  shell. See `frontend-gym/CLAUDE.md`.
 - `frontend-gym-web/`: the Gym web application surface. React 19 + Vite,
   browser-first, without Capacitor. It shares the BIAFYT visual language
   with the other applications but uses a web-oriented layout and UX.

@@ -41,6 +41,7 @@ class DuelController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        Duel::expireStale();
         $userId = $request->user()->id;
 
         $duels = Duel::query()
@@ -64,6 +65,7 @@ class DuelController extends Controller
      */
     public function opponents(Request $request): JsonResponse
     {
+        Duel::expireStale();
         $userId = $request->user()->id;
 
         $myGymIds = GymAssignment::query()
@@ -126,11 +128,13 @@ class DuelController extends Controller
      * brief): two simultaneous `POST /me/duels` from the same challenger can
      * each read the same available balance and both pass, over-committing
      * the balance. There is no per-user ledger row to lock without a larger
-     * refactor. The opponent side is also not bounded here (stake is
-     * committed on accept, a different endpoint). See PROJECT_STATE.
+     * refactor. The opponent is bounded the same way when they ACCEPT
+     * (`accept()` — found by the 360 test: a 0-point opponent could accept
+     * and only gain, or end negative). See PROJECT_STATE.
      */
     public function store(Request $request): JsonResponse
     {
+        Duel::expireStale();
         $validated = $request->validate([
             'opponent_user_id' => ['required', 'integer', 'exists:users,id'],
             'modality' => ['required', 'string'],
@@ -163,13 +167,7 @@ class DuelController extends Controller
         // A4: stake must fit the challenger's available points — the whole
         // ledger balance minus what is already staked on their own open
         // duels (they could still lose those).
-        $balance = (int) $request->user()->pointTransactions()->sum('amount');
-        $committedStake = (int) Duel::query()
-            ->where('challenger_user_id', $challengerId)
-            ->whereIn('status', self::STANDING_STATUSES)
-            ->sum('stake');
-
-        if ($stake > $balance - $committedStake) {
+        if ($stake > $this->availablePoints($challengerId)) {
             throw ValidationException::withMessages([
                 'stake' => ['The stake exceeds your available points balance.'],
             ]);
@@ -241,6 +239,13 @@ class DuelController extends Controller
 
         if ($model->status !== Duel::STATUS_PENDING) {
             throw ValidationException::withMessages(['status' => ['Only a pending duel can be accepted.']]);
+        }
+
+        // Same bound as creating: the stake must fit the opponent's AVAILABLE points.
+        if ((int) $model->stake > $this->availablePoints($userId, $model->id)) {
+            throw ValidationException::withMessages([
+                'stake' => ['Your available points do not cover the stake of this duel.'],
+            ]);
         }
 
         $model->update(['status' => Duel::STATUS_ACCEPTED, 'accepted_at' => now()]);
@@ -480,8 +485,30 @@ class DuelController extends Controller
      * to the participant is what makes a non-participant indistinguishable
      * from a missing row.
      */
+    /**
+     * Ledger balance minus the stakes the user is already committed to in
+     * other standing duels (as challenger: pending/accepted/in progress; as
+     * opponent: accepted/in progress — they could still lose those).
+     */
+    private function availablePoints(int $userId, ?int $exceptDuelId = null): int
+    {
+        $balance = (int) PointTransaction::where('user_id', $userId)->sum('amount');
+
+        $committed = (int) Duel::query()
+            ->where(function ($query) use ($userId) {
+                $query->where(fn ($q) => $q->where('challenger_user_id', $userId)->whereIn('status', self::STANDING_STATUSES))
+                    ->orWhere(fn ($q) => $q->where('opponent_user_id', $userId)->whereIn('status', Duel::RUNNABLE_STATUSES));
+            })
+            ->when($exceptDuelId !== null, fn ($q) => $q->where('id', '!=', $exceptDuelId))
+            ->sum('stake');
+
+        return $balance - $committed;
+    }
+
     private function findParticipantDuel(int $userId, int $duelId): Duel
     {
+        Duel::expireStale();
+
         return Duel::query()
             ->where(function ($query) use ($userId) {
                 $query->where('challenger_user_id', $userId)->orWhere('opponent_user_id', $userId);
@@ -521,6 +548,7 @@ class DuelController extends Controller
                 : null,
             'accepted_at' => $duel->accepted_at,
             'finished_at' => $duel->finished_at,
+            'expires_at' => $duel->expiresAt(),
             'created_at' => $duel->created_at,
         ];
     }

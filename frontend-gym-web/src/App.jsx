@@ -13,9 +13,11 @@ import Workspace from "./screens/Workspace.jsx";
 import Inventory from "./screens/Inventory.jsx";
 import Branches from "./screens/Branches.jsx";
 import Vouchers from "./screens/Vouchers.jsx";
+import Reports from "./screens/Reports.jsx";
+import { canOpen } from "./utils/gym.js";
 import Account from "./screens/Account.jsx";
 
-const SCREENS = ["overview", "workspace", "branches", "inventory", "vouchers", "account"];
+const SCREENS = ["overview", "reports", "workspace", "branches", "inventory", "vouchers", "account"];
 
 function Hero({ subtitle }) {
   return (
@@ -34,7 +36,7 @@ function Hero({ subtitle }) {
 }
 
 function Shell() {
-  const { auth, authChecking, gymAccess } = useSession();
+  const { auth, authChecking, gymAccess, activeRole } = useSession();
   const [screen, setScreen] = useState("overview");
 
   if (authChecking) return <Hero subtitle="Verificando sesión…" />;
@@ -42,18 +44,19 @@ function Shell() {
   if (gymAccess.status === "loading") return <Hero subtitle="Cargando acceso…" />;
   if (gymAccess.status === "none") return <NoGymAccess />;
 
-  const view = SCREENS.includes(screen) ? screen : "overview";
+  const view = SCREENS.includes(screen) && canOpen(activeRole, screen) ? screen : "overview";
   let content;
   if (view === "workspace") content = <Workspace />;
   else if (view === "inventory") content = <Inventory />;
   else if (view === "branches") content = <Branches />;
   else if (view === "vouchers") content = <Vouchers />;
+  else if (view === "reports") content = <Reports key={gymAccess.activeGymId} />;
   else if (view === "account") content = <Account />;
   else content = <Overview onNavigate={setScreen} />;
 
   return (
     <div className="gym-shell">
-      <Sidebar current={view} onNavigate={setScreen} />
+      <Sidebar current={view} onNavigate={setScreen} role={activeRole} />
       <Topbar screen={view} onNavigate={setScreen} />
       <main className="gym-main">{content}</main>
     </div>

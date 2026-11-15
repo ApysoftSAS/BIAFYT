@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 
 /**
  * A duel between two real users. State machine:
@@ -34,6 +35,15 @@ class Duel extends Model
 
     public const STATUS_UNVALIDATED = 'unvalidated';
 
+    /** Nobody answered/finished in time. No winner, no ledger movement. */
+    public const STATUS_EXPIRED = 'expired';
+
+    /** A challenge nobody answers lapses this many days after it was sent. */
+    public const PENDING_TTL_DAYS = 3;
+
+    /** An accepted duel lapses this many days after acceptance if it is not resolved. */
+    public const ACTIVE_TTL_DAYS = 7;
+
     /** Statuses in which a run may still be submitted. */
     public const RUNNABLE_STATUSES = [self::STATUS_ACCEPTED, self::STATUS_IN_PROGRESS];
 
@@ -46,6 +56,7 @@ class Duel extends Model
         self::STATUS_REJECTED,
         self::STATUS_CANCELLED,
         self::STATUS_UNVALIDATED,
+        self::STATUS_EXPIRED,
     ];
 
     protected $fillable = [
@@ -70,6 +81,38 @@ class Duel extends Model
             'accepted_at' => 'datetime',
             'finished_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Lapse every standing duel past its deadline. Called lazily from the
+     * API (no scheduler needed): both participants then see `expired`, and
+     * the app refunds the locked stake exactly like a cancellation.
+     * ponytail: global sweep on read; move to a scheduled command if the
+     * duels table grows large.
+     */
+    public static function expireStale(): void
+    {
+        $lapse = ['status' => self::STATUS_EXPIRED, 'finished_at' => now()];
+
+        static::where('status', self::STATUS_PENDING)
+            ->where('created_at', '<', now()->subDays(self::PENDING_TTL_DAYS))
+            ->update($lapse);
+
+        static::whereIn('status', self::RUNNABLE_STATUSES)
+            ->where('accepted_at', '<', now()->subDays(self::ACTIVE_TTL_DAYS))
+            ->update($lapse);
+    }
+
+    /**
+     * When this duel lapses, or null once it is terminal.
+     */
+    public function expiresAt(): ?Carbon
+    {
+        return match (true) {
+            $this->status === self::STATUS_PENDING => $this->created_at?->copy()->addDays(self::PENDING_TTL_DAYS),
+            in_array($this->status, self::RUNNABLE_STATUSES, true) => ($this->accepted_at ?? $this->created_at)?->copy()->addDays(self::ACTIVE_TTL_DAYS),
+            default => null,
+        };
     }
 
     public function challenger(): BelongsTo

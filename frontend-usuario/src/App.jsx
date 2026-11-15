@@ -27,6 +27,7 @@ import Calendar from "./screens/Calendar.jsx";
 import Challenges from "./screens/Challenges.jsx";
 import News from "./screens/News.jsx";
 import Videos from "./screens/Videos.jsx";
+import Vouchers from "./screens/Vouchers.jsx";
 import Plans from "./screens/Plans.jsx";
 import Analytics from "./screens/Analytics.jsx";
 import { ACTIVITY_STATE } from "./utils/validation.js";
@@ -120,7 +121,7 @@ function Shell() {
         setScreen("profile");
       } else if (screen === "editProfile") {
         setScreen("profile");
-      } else if (["routines", "calendar", "challenges", "news", "prizes", "videos", "plans", "analytics"].includes(screen)) {
+      } else if (["routines", "calendar", "challenges", "news", "prizes", "videos", "vouchers", "plans", "analytics"].includes(screen)) {
         setScreen("home");
       } else if (screen === "home") {
         CapApp.exitApp();
@@ -161,12 +162,13 @@ function Shell() {
       .submitDuelRun(duelId, { ...run, competitiveEligible })
       .then((duel) => {
         if (duel?.status === "unvalidated") {
-          actions.notify({ channel: "duels", title: "DUELO NO VALIDADO", body: "Se devolvieron los puntos apostados.", tone: "alert" });
+          actions.notify({ channel: "duels", ref: `duel:${duel.id}:unvalidated`, title: "DUELO NO VALIDADO", body: "Se devolvieron los puntos apostados.", tone: "alert" });
         } else if (duel?.status === "finished") {
           const draw = duel.winner_user_id == null;
           const won = duel.winner_user_id === me.id;
           actions.notify({
             channel: "duels",
+            ref: `duel:${duel.id}:finished`,
             title: draw ? "Duelo en empate." : won ? "🏆 Ganaste tu duelo." : "El duelo terminó.",
             body: draw
               ? "Se devolvió tu apuesta."
@@ -225,6 +227,8 @@ function Shell() {
     content = <Prizes onBack={() => setScreen("home")} />;
   } else if (screen === "videos") {
     content = <Videos onBack={() => setScreen("home")} />;
+  } else if (screen === "vouchers") {
+    content = <Vouchers onBack={() => setScreen("home")} />;
   } else if (screen === "plans") {
     content = <Plans onBack={() => setScreen("home")} />;
   } else if (screen === "analytics") {

@@ -1,6 +1,7 @@
 import { useSession } from "../state/SessionContext.jsx";
 
 const TITLES = {
+  reports: "Reportes",
   requests: "Solicitudes de registro",
   gyms: "Gimnasios",
   promotions: "Promociones",

@@ -1,21 +1,25 @@
 /**
- * BIAFYT GYM — NAVEGACIÓN INFERIOR (foundation)
+ * BIAFYT GYM — NAVEGACIÓN INFERIOR
  *
- * Los items de navegación son PROVISIONALES. La superficie Gym real
- * (organización, sedes, miembros, staff, coaches, administración) se
- * define en la fase Coach/Gym del roadmap — ver BIAFYT_BUSINESS_CORE.md
- * §5, §46 (D8), §47 (Fase 5). Aquí sólo demuestran el shell.
+ * Mismas secciones que el sidebar de frontend-gym-web. Un `staff` (recepción)
+ * solo ve las que `canOpen` le permite (el backend responde 404 al resto).
  */
+import { canOpen } from "../utils/gym.js";
+
 const items = [
   { id: "overview", label: "Resumen", icon: "▤" },
+  { id: "reports", label: "Reportes", icon: "◩" },
   { id: "workspace", label: "Espacio", icon: "▦" },
+  { id: "branches", label: "Sedes", icon: "◫" },
+  { id: "inventory", label: "Inventario", icon: "▥" },
+  { id: "vouchers", label: "Vouchers", icon: "◇" },
   { id: "account", label: "Cuenta", icon: "◉" },
 ];
 
-export default function BottomTabs({ current, onNavigate }) {
+export default function BottomTabs({ current, onNavigate, role }) {
   return (
     <nav className="bottom-nav">
-      {items.map((it) => (
+      {items.filter((it) => canOpen(role, it.id)).map((it) => (
         <button
           key={it.id}
           className={`nav-item ${current === it.id ? "nav-active" : ""}`}

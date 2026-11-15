@@ -1,33 +1,343 @@
-import { Screen, Card, Badge, EmptyState } from "../components/UI.jsx";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "../state/SessionContext.jsx";
+import { Panel, Button, Field, Input, EmptyState, Modal } from "../components/UI.jsx";
+import { apiErrorMessage } from "../utils/api.js";
+import { formatDate } from "../utils/gym.js";
+import MemberDetail from "./MemberDetail.jsx";
 
 /**
- * ESPACIO — PLACEHOLDER
+ * ESPACIO (Gym Web) — gestión de miembros y coaches (slice D-GYM).
  *
- * Pantalla puramente visual. No implementa gestión de sedes, miembros,
- * staff, coaches, programas ni ninguna otra capacidad Gym. Diferido a la
- * fase Coach/Gym — ver BIAFYT_BUSINESS_CORE.md §46 (D8), §47 (Fase 5).
+ * El gym_admin: ve miembros, coaches y staff activos de SU gym, busca un
+ * usuario por email exacto, lo asigna como member, coach o staff, revoca una
+ * asignación, y abre el detalle (sombra) de un miembro. El STAFF (recepción)
+ * ve miembros y coaches, da de alta/baja SOLO miembros y abre su detalle.
+ * Nadie concede gym_admin por aquí (D-GYM-3).
  */
-export default function Workspace() {
-  return (
-    <Screen title="Espacio" subtitle="Superficie Gym — foundation">
-      <Card className="placeholder-note">
-        Andamiaje visual. La gestión operativa del gimnasio (sedes, miembros,
-        staff, coaches, programas) requiere el dominio Gym y su autorización
-        organizacional, ambos diferidos a la fase Coach/Gym.
-      </Card>
+const ROLE_LABEL = { member: "miembro", coach: "coach", staff: "staff" };
 
-      <div className="stack-sm">
-        {["Sedes", "Miembros", "Staff y coaches"].map((label) => (
-          <Card key={label}>
-            <div className="row-between">
-              <strong>{label}</strong>
-              <Badge tone="warning">Pronto</Badge>
-            </div>
-          </Card>
-        ))}
+export default function Workspace() {
+  const { gymAccess, actions, activeRole } = useSession();
+  const isAdmin = activeRole === "gym_admin";
+  const activeGym = useMemo(
+    () => gymAccess.gyms.find((g) => g.id === gymAccess.activeGymId) ?? null,
+    [gymAccess.gyms, gymAccess.activeGymId]
+  );
+
+  const [members, setMembers] = useState([]);
+  const [coaches, setCoaches] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
+
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [revokeTarget, setRevokeTarget] = useState(null); // { assignment, kind }
+  const [revokeBusy, setRevokeBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setListError("");
+    try {
+      const [m, c, b, st] = await Promise.all([
+        actions.getMembers(),
+        actions.getCoaches(),
+        actions.getBranches(),
+        isAdmin ? actions.getStaff() : Promise.resolve({ staff: [] }),
+      ]);
+      setMembers(m.members ?? []);
+      setCoaches(c.coaches ?? []);
+      setStaff(st.staff ?? []);
+      setBranches(b ?? []);
+    } catch (e) {
+      setListError(apiErrorMessage(e, "No pudimos cargar la gestión del gimnasio."));
+    } finally {
+      setLoading(false);
+    }
+  }, [actions, isAdmin]);
+
+  // Recarga al montar y cada vez que cambia el gym activo.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) load();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [load, gymAccess.activeGymId]);
+
+  const confirmRevoke = async () => {
+    if (!revokeTarget) return;
+    setRevokeBusy(true);
+    try {
+      await actions.revokeAssignment(revokeTarget.assignment.id);
+      setRevokeTarget(null);
+      await load();
+    } catch (e) {
+      setListError(apiErrorMessage(e, "No se pudo revocar la asignación."));
+      setRevokeTarget(null);
+    } finally {
+      setRevokeBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="gym-main-head">
+        <h2>Gestión de {activeGym?.name ?? "gimnasio"}</h2>
+        <p>
+          {isAdmin
+            ? "Miembros, coaches, staff y alta de personas. Solo tu organización."
+            : "Miembros y alta de personas (recepción). Solo tu organización."}
+        </p>
       </div>
 
-      <EmptyState icon="▦" title="Nada que gestionar todavía" text="Estas secciones se activan en la fase Coach/Gym." />
-    </Screen>
+      {gymAccess.gyms.length > 1 && (
+        <Field label="Organización">
+          <select
+            className="input"
+            value={gymAccess.activeGymId ?? ""}
+            onChange={(e) => actions.selectGym(Number(e.target.value))}
+          >
+            {gymAccess.gyms.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+
+      <div className="stack">
+        {listError && <p className="text-warning">{listError}</p>}
+
+        <AddPersonPanel branches={branches} onDone={load} isAdmin={isAdmin} />
+
+        <AssignmentTable
+          title="Miembros"
+          rows={members}
+          loading={loading}
+          emptyText="Sin miembros activos. Añade una persona arriba."
+          onOpen={(row) => setSelectedMember(row)}
+          onRevoke={(row) => setRevokeTarget({ assignment: row, kind: "member" })}
+          showBranch
+        />
+
+        <AssignmentTable
+          title="Coaches"
+          rows={coaches}
+          loading={loading}
+          emptyText="Sin coaches activos."
+          onRevoke={isAdmin ? (row) => setRevokeTarget({ assignment: row, kind: "coach" }) : undefined}
+        />
+
+        {isAdmin && (
+          <AssignmentTable
+            title="Staff"
+            rows={staff}
+            loading={loading}
+            emptyText="Sin staff activo. Asigna el rol a una persona arriba."
+            onRevoke={(row) => setRevokeTarget({ assignment: row, kind: "staff" })}
+          />
+        )}
+      </div>
+
+      {selectedMember && (
+        <MemberDetail member={selectedMember} onClose={() => setSelectedMember(null)} />
+      )}
+
+      {revokeTarget && (
+        <Modal open title="Revocar asignación" onClose={() => (revokeBusy ? null : setRevokeTarget(null))}>
+          <p className="muted">
+            ¿Revocar el rol <strong>{ROLE_LABEL[revokeTarget.kind]}</strong> de{" "}
+            <strong>{revokeTarget.assignment.user.name}</strong> en {activeGym?.name}?
+          </p>
+          <p className="micro">
+            La asignación queda inactiva (no se borra). {revokeTarget.kind === "coach" && "La relación coach↔atleta que ya exista no se toca."}
+          </p>
+          <div className="row-gap" style={{ marginTop: 12 }}>
+            <Button variant="ghost" disabled={revokeBusy} onClick={() => setRevokeTarget(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" disabled={revokeBusy} onClick={confirmRevoke}>
+              {revokeBusy ? "REVOCANDO…" : "REVOCAR"}
+            </Button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function AddPersonPanel({ branches, onDone, isAdmin }) {
+  const { actions } = useSession();
+  const [email, setEmail] = useState("");
+  const [found, setFound] = useState(null);
+  const [role, setRole] = useState("member");
+  const [branchId, setBranchId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const reset = () => {
+    setEmail("");
+    setFound(null);
+    setRole("member");
+    setBranchId("");
+    setError("");
+  };
+
+  const lookup = async () => {
+    setError("");
+    setNotice("");
+    setFound(null);
+    const value = email.trim().toLowerCase();
+    if (!value) {
+      setError("Escribe un correo.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { user } = await actions.lookupUser(value);
+      setFound(user);
+    } catch (e) {
+      setError(apiErrorMessage(e, "No encontramos a nadie con ese correo exacto."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const assign = async () => {
+    if (!found) return;
+    setError("");
+    if (role === "member" && !branchId) {
+      setError("Elige una sede para el miembro.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await actions.createAssignment({
+        user_id: found.id,
+        role,
+        branch_id: role === "member" ? Number(branchId) : null,
+      });
+      setNotice(`${found.name} asignado como ${ROLE_LABEL[role]}.`);
+      reset();
+      await onDone();
+    } catch (e) {
+      setError(apiErrorMessage(e, "No se pudo asignar."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel title="Añadir persona">
+      <div className="stack-sm">
+        <Field label="Correo (exacto)" hint="La persona ya debe tener una cuenta BIAFYT.">
+          <div className="row-gap">
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="persona@correo.com"
+              style={{ flex: 1 }}
+            />
+            <Button variant="ghost" disabled={busy} onClick={lookup}>
+              {busy && !found ? "BUSCANDO…" : "BUSCAR"}
+            </Button>
+          </div>
+        </Field>
+
+        {error && <p className="text-warning">{error}</p>}
+        {notice && <p className="text-success">{notice}</p>}
+
+        {found && (
+          <div className="stack-sm">
+            <p>
+              <strong>{found.name}</strong> <span className="micro">#{found.id}</span>
+            </p>
+            <Field label="Rol">
+              <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+                <option value="member">Miembro</option>
+                {isAdmin && <option value="coach">Coach</option>}
+                {isAdmin && <option value="staff">Staff (recepción)</option>}
+              </select>
+            </Field>
+            {role === "member" && (
+              <Field label="Sede">
+                <select className="input" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                  <option value="">— elige una sede —</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            <div className="row-gap">
+              <Button variant="ghost" disabled={busy} onClick={reset}>
+                Cancelar
+              </Button>
+              <Button disabled={busy} onClick={assign}>
+                {busy ? "ASIGNANDO…" : "ASIGNAR"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function AssignmentTable({ title, rows, loading, emptyText, onOpen, onRevoke, showBranch = false }) {
+  // Sin `onRevoke` (p. ej. staff viendo coaches) la tabla es de solo lectura.
+  return (
+    <Panel title={`${title} (${rows.length})`}>
+      {loading && rows.length === 0 ? (
+        <p className="muted">Cargando…</p>
+      ) : rows.length === 0 ? (
+        <EmptyState icon="◇" title={`Sin ${title.toLowerCase()}`} text={emptyText} />
+      ) : (
+        <div className="gym-table-wrap">
+          <table className="gym-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                {showBranch && <th>Sede</th>}
+                <th>Desde</th>
+                <th aria-label="acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {onOpen ? (
+                      <button className="link-button" onClick={() => onOpen(row)}>
+                        {row.user.name}
+                      </button>
+                    ) : (
+                      row.user.name
+                    )}
+                  </td>
+                  {showBranch && <td>{row.branch?.name ?? "—"}</td>}
+                  <td>{formatDate(row.since)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {onRevoke && (
+                      <Button variant="ghost" onClick={() => onRevoke(row)}>
+                        Revocar
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
   );
 }

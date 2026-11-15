@@ -12,10 +12,11 @@ import Home from "./screens/Home.jsx";
 import Athletes from "./screens/Athletes.jsx";
 import AthleteDetail from "./screens/AthleteDetail.jsx";
 import RoutineBuilder from "./screens/RoutineBuilder.jsx";
+import Reports from "./screens/Reports.jsx";
 import Profile from "./screens/Profile.jsx";
 import { groupRelationships } from "./utils/relationships.js";
 
-const TABS = ["home", "athletes", "profile"];
+const TABS = ["home", "athletes", "reports", "profile"];
 
 /** Se muestra mientras se revalida el token persistido contra /auth/me al arrancar. */
 function AuthChecking() {
@@ -94,6 +95,8 @@ function Shell() {
         onSaved={() => setScreen("athleteDetail")}
       />
     );
+  } else if (screen === "reports") {
+    content = <Reports onOpenAthlete={openAthlete} />;
   } else if (screen === "profile") {
     content = <Profile />;
   } else {

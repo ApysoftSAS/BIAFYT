@@ -4,7 +4,7 @@ import appConfig from "../config/appConfig.js";
 
 /**
  * CUENTA (Gym Web)
- * Identidad de la sesión + rol(es) gym_admin + cerrar sesión.
+ * Identidad de la sesión + rol(es) de gestión (gym_admin / staff) + cerrar sesión.
  * Real (contrato `/auth/*` + `GET /me/gym-assignments`).
  */
 export default function Account() {
@@ -30,20 +30,20 @@ export default function Account() {
           </div>
         </Card>
 
-        <Panel title="Administración de Gym" action={<Badge tone="accent">gym_admin</Badge>}>
+        <Panel title="Gestión de Gym">
           {gymAccess.gyms.length === 0 ? (
-            <p className="muted">Sin rol gym_admin activo.</p>
+            <p className="muted">Sin rol gym_admin ni staff activo.</p>
           ) : (
             <div className="stack-sm">
               {gymAccess.gyms.map((g) => (
                 <div className="row-between" key={g.id}>
                   <span>{g.name}</span>
-                  <span className="micro">administrador</span>
+                  <Badge tone={g.role === "gym_admin" ? "accent" : "default"}>{g.role === "gym_admin" ? "administrador" : "staff"}</Badge>
                 </div>
               ))}
               <p className="micro">
-                El rol gym_admin lo concede el equipo de BIAFYT (no se
-                autoasigna). staff y la gestión de sedes llegan en una fase posterior.
+                El rol gym_admin lo concede el equipo de BIAFYT (no se autoasigna);
+                el rol staff lo concede el administrador del gimnasio.
               </p>
             </div>
           )}

@@ -175,33 +175,3 @@ export const communityUsers = [
     duels: { wins: 10, losses: 5 },
   },
 ];
-
-/** Equipos preparados para duelos por equipos (punto 76). */
-export const teams = [
-  {
-    id: "team-norte",
-    name: "KAIROS NORTE",
-    gymId: "gym-kairos-bog",
-    branchId: "sede-kairos-norte",
-    memberIds: ["u-andrea", "u-david", "u-sofia"],
-    points: 8260,
-    level: "Intermedio",
-    wins: 6,
-    losses: 2,
-  },
-  {
-    id: "team-centro",
-    name: "KAIROS CENTRO",
-    gymId: "gym-kairos-bog",
-    branchId: "sede-kairos-centro",
-    memberIds: ["u-laura"],
-    points: 2740,
-    level: "Intermedio",
-    wins: 3,
-    losses: 4,
-  },
-];
-
-export function findUser(list, id) {
-  return list.find((u) => u.id === id) || null;
-}

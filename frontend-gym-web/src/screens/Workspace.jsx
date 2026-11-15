@@ -8,13 +8,17 @@ import MemberDetail from "./MemberDetail.jsx";
 /**
  * ESPACIO (Gym Web) — gestión de miembros y coaches (slice D-GYM).
  *
- * El gym_admin: ve la lista de miembros/coaches activos de SU gym, busca
- * un usuario por email exacto, lo asigna como member o coach, revoca una
- * asignación, y abre el detalle (sombra) de un miembro. NO administra
- * gym_admin/staff ni crea gyms/sedes (D-GYM-3, D-GYM-8).
+ * El gym_admin: ve miembros, coaches y staff activos de SU gym, busca un
+ * usuario por email exacto, lo asigna como member, coach o staff, revoca una
+ * asignación, y abre el detalle (sombra) de un miembro. El STAFF (recepción)
+ * ve miembros y coaches, da de alta/baja SOLO miembros y abre su detalle.
+ * Nadie concede gym_admin por aquí (D-GYM-3).
  */
+const ROLE_LABEL = { member: "miembro", coach: "coach", staff: "staff" };
+
 export default function Workspace() {
-  const { gymAccess, actions } = useSession();
+  const { gymAccess, actions, activeRole } = useSession();
+  const isAdmin = activeRole === "gym_admin";
   const activeGym = useMemo(
     () => gymAccess.gyms.find((g) => g.id === gymAccess.activeGymId) ?? null,
     [gymAccess.gyms, gymAccess.activeGymId]
@@ -22,6 +26,7 @@ export default function Workspace() {
 
   const [members, setMembers] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [staff, setStaff] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
@@ -34,16 +39,22 @@ export default function Workspace() {
     setLoading(true);
     setListError("");
     try {
-      const [m, c, b] = await Promise.all([actions.getMembers(), actions.getCoaches(), actions.getBranches()]);
+      const [m, c, b, st] = await Promise.all([
+        actions.getMembers(),
+        actions.getCoaches(),
+        actions.getBranches(),
+        isAdmin ? actions.getStaff() : Promise.resolve({ staff: [] }),
+      ]);
       setMembers(m.members ?? []);
       setCoaches(c.coaches ?? []);
+      setStaff(st.staff ?? []);
       setBranches(b ?? []);
     } catch (e) {
       setListError(apiErrorMessage(e, "No pudimos cargar la gestión del gimnasio."));
     } finally {
       setLoading(false);
     }
-  }, [actions]);
+  }, [actions, isAdmin]);
 
   // Recarga al montar y cada vez que cambia el gym activo.
   useEffect(() => {
@@ -75,7 +86,11 @@ export default function Workspace() {
     <div>
       <div className="gym-main-head">
         <h2>Gestión de {activeGym?.name ?? "gimnasio"}</h2>
-        <p>Miembros, coaches y alta de personas. Solo tu organización.</p>
+        <p>
+          {isAdmin
+            ? "Miembros, coaches, staff y alta de personas. Solo tu organización."
+            : "Miembros y alta de personas (recepción). Solo tu organización."}
+        </p>
       </div>
 
       {gymAccess.gyms.length > 1 && (
@@ -97,7 +112,7 @@ export default function Workspace() {
       <div className="stack">
         {listError && <p className="text-warning">{listError}</p>}
 
-        <AddPersonPanel branches={branches} onDone={load} />
+        <AddPersonPanel branches={branches} onDone={load} isAdmin={isAdmin} />
 
         <AssignmentTable
           title="Miembros"
@@ -114,8 +129,18 @@ export default function Workspace() {
           rows={coaches}
           loading={loading}
           emptyText="Sin coaches activos."
-          onRevoke={(row) => setRevokeTarget({ assignment: row, kind: "coach" })}
+          onRevoke={isAdmin ? (row) => setRevokeTarget({ assignment: row, kind: "coach" }) : undefined}
         />
+
+        {isAdmin && (
+          <AssignmentTable
+            title="Staff"
+            rows={staff}
+            loading={loading}
+            emptyText="Sin staff activo. Asigna el rol a una persona arriba."
+            onRevoke={(row) => setRevokeTarget({ assignment: row, kind: "staff" })}
+          />
+        )}
       </div>
 
       {selectedMember && (
@@ -125,7 +150,7 @@ export default function Workspace() {
       {revokeTarget && (
         <Modal open title="Revocar asignación" onClose={() => (revokeBusy ? null : setRevokeTarget(null))}>
           <p className="muted">
-            ¿Revocar el rol <strong>{revokeTarget.kind === "member" ? "miembro" : "coach"}</strong> de{" "}
+            ¿Revocar el rol <strong>{ROLE_LABEL[revokeTarget.kind]}</strong> de{" "}
             <strong>{revokeTarget.assignment.user.name}</strong> en {activeGym?.name}?
           </p>
           <p className="micro">
@@ -145,7 +170,7 @@ export default function Workspace() {
   );
 }
 
-function AddPersonPanel({ branches, onDone }) {
+function AddPersonPanel({ branches, onDone, isAdmin }) {
   const { actions } = useSession();
   const [email, setEmail] = useState("");
   const [found, setFound] = useState(null);
@@ -197,7 +222,7 @@ function AddPersonPanel({ branches, onDone }) {
         role,
         branch_id: role === "member" ? Number(branchId) : null,
       });
-      setNotice(`${found.name} asignado como ${role === "member" ? "miembro" : "coach"}.`);
+      setNotice(`${found.name} asignado como ${ROLE_LABEL[role]}.`);
       reset();
       await onDone();
     } catch (e) {
@@ -236,7 +261,8 @@ function AddPersonPanel({ branches, onDone }) {
             <Field label="Rol">
               <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="member">Miembro</option>
-                <option value="coach">Coach</option>
+                {isAdmin && <option value="coach">Coach</option>}
+                {isAdmin && <option value="staff">Staff (recepción)</option>}
               </select>
             </Field>
             {role === "member" && (
@@ -267,6 +293,7 @@ function AddPersonPanel({ branches, onDone }) {
 }
 
 function AssignmentTable({ title, rows, loading, emptyText, onOpen, onRevoke, showBranch = false }) {
+  // Sin `onRevoke` (p. ej. staff viendo coaches) la tabla es de solo lectura.
   return (
     <Panel title={`${title} (${rows.length})`}>
       {loading && rows.length === 0 ? (
@@ -299,9 +326,11 @@ function AssignmentTable({ title, rows, loading, emptyText, onOpen, onRevoke, sh
                   {showBranch && <td>{row.branch?.name ?? "—"}</td>}
                   <td>{formatDate(row.since)}</td>
                   <td style={{ textAlign: "right" }}>
-                    <Button variant="ghost" onClick={() => onRevoke(row)}>
-                      Revocar
-                    </Button>
+                    {onRevoke && (
+                      <Button variant="ghost" onClick={() => onRevoke(row)}>
+                        Revocar
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

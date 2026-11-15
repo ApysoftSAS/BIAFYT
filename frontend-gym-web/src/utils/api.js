@@ -109,6 +109,11 @@ export function apiGetGyms() {
   return apiFetch("/gyms");
 }
 
+/** GET /me/gym/{gymId}/staff → { staff: [{ id, user{id,name}, role, branch, since }] }. Solo gym_admin (staff → 404). */
+export function apiGetGymStaff(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/staff`, { token });
+}
+
 /** GET /me/gym/{gymId}/members → { members: [{ id, user{id,name}, role, branch{id,name}|null, since }] }. Solo assignments `member` activos. */
 export function apiGetGymMembers(token, gymId) {
   return apiFetch(`/me/gym/${gymId}/members`, { token });
@@ -259,4 +264,49 @@ export function apiRedeemGymVoucher(token, gymId, id) {
 /** POST /me/gym/{gymId}/vouchers/{id}/revoke → { voucher }. Solo `issued` (422 si no). */
 export function apiRevokeGymVoucher(token, gymId, id) {
   return apiFetch(`/me/gym/${gymId}/vouchers/${id}/revoke`, { method: "POST", token, body: {} });
+}
+
+// ------------------------------------------------------------------
+// REPORTES — informe administrativo del gym (solo lectura)
+// ------------------------------------------------------------------
+
+/**
+ * GET /me/gym/{gymId}/reports?days=7|30|90&branch_id= → { report }.
+ * Asistencia (check-ins de los miembros ACTIVOS, desde su alta), horas pico,
+ * mapa día×hora, miembros inactivos, vouchers. Ver backend App\Support\GymReport:
+ * el check-in no guarda el gym, se atribuye por membresía.
+ */
+export function apiGetGymReport(token, gymId, { days = 30, branchId = null } = {}) {
+  const qs = new URLSearchParams({ days: String(days) });
+  if (branchId) qs.set("branch_id", String(branchId));
+  return apiFetch(`/me/gym/${gymId}/reports?${qs}`, { token });
+}
+
+// ------------------------------------------------------------------
+// VOUCHERS — emisión masiva y códigos compartidos con cupo
+// ------------------------------------------------------------------
+
+/**
+ * POST /me/gym/{gymId}/vouchers/bulk → { issued } (201). Mismo voucher para
+ * varios miembros; cada uno recibe el suyo, con su propio código. Body: plantilla
+ * del voucher (+ `valid_days` | `expires_at`) y `scope`: "all" | "branch" (+ branch_id)
+ * | "selected" (+ athlete_user_ids). Todo o nada.
+ */
+export function apiBulkIssueGymVouchers(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/vouchers/bulk`, { method: "POST", token, body: payload });
+}
+
+/** GET /me/gym/{gymId}/voucher-campaigns → { campaigns: [{ id, code, title, …, max_claims, claimed, status }] }. Solo gym_admin. */
+export function apiGetGymVoucherCampaigns(token, gymId) {
+  return apiFetch(`/me/gym/${gymId}/voucher-campaigns`, { token });
+}
+
+/** POST /me/gym/{gymId}/voucher-campaigns → { campaign } (201). Plantilla + `code?` (4–20 letras/dígitos) + `max_claims?`. */
+export function apiCreateGymVoucherCampaign(token, gymId, payload) {
+  return apiFetch(`/me/gym/${gymId}/voucher-campaigns`, { method: "POST", token, body: payload });
+}
+
+/** POST /me/gym/{gymId}/voucher-campaigns/{id}/close → { campaign }. Detiene nuevos canjes; los ya canjeados siguen. */
+export function apiCloseGymVoucherCampaign(token, gymId, id) {
+  return apiFetch(`/me/gym/${gymId}/voucher-campaigns/${id}/close`, { method: "POST", token, body: {} });
 }

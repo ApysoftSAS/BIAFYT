@@ -1825,3 +1825,12 @@ summary:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Código de un voucher: se lee y se dicta/teclea, no es texto corrido. */
+.voucher-code {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  user-select: all;
+}

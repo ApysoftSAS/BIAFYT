@@ -501,4 +501,123 @@ class DuelApiTest extends TestCase
         $this->assertSame(0, (int) $challenger->pointTransactions()->sum('amount'));
         $this->assertGreaterThanOrEqual(0, (int) $challenger->pointTransactions()->sum('amount'));
     }
+
+    // -----------------------------------------------------------------
+    // expiration (lazy sweep)
+    // -----------------------------------------------------------------
+
+    private function age(Duel $duel, string $column, int $days): void
+    {
+        Duel::whereKey($duel->id)->update([$column => now()->subDays($days)]);
+    }
+
+    public function test_an_unanswered_challenge_lapses_after_three_days(): void
+    {
+        $gym = $this->gym();
+        $a = $this->member($gym);
+        $b = $this->member($gym);
+        $stale = $this->makeDuel($a, $b);
+        $this->age($stale, 'created_at', Duel::PENDING_TTL_DAYS + 1);
+
+        $fresh = $this->member($gym);
+        $recent = $this->makeDuel($a, $fresh);
+        $this->age($recent, 'created_at', 1);
+
+        $rows = collect($this->actingAs($a)->getJson('/api/v1/me/duels')->assertOk()->json('duels'))->keyBy('id');
+
+        $this->assertSame(Duel::STATUS_EXPIRED, $rows[$stale->id]['status']);
+        $this->assertNull($rows[$stale->id]['expires_at']);
+        $this->assertNotNull($rows[$stale->id]['finished_at']);
+        $this->assertSame(Duel::STATUS_PENDING, $rows[$recent->id]['status']);
+        $this->assertNotNull($rows[$recent->id]['expires_at']);
+        // The OTHER participant sees the same outcome.
+        $this->actingAs($b)->getJson('/api/v1/me/duels')->assertJsonPath('duels.0.status', Duel::STATUS_EXPIRED);
+    }
+
+    public function test_an_accepted_or_in_progress_duel_lapses_seven_days_after_acceptance(): void
+    {
+        $gym = $this->gym();
+        $a = $this->member($gym);
+        $b = $this->member($gym);
+        $c = $this->member($gym);
+        $accepted = $this->makeDuel($a, $b, Duel::STATUS_ACCEPTED);
+        $inProgress = $this->makeDuel($a, $c, Duel::STATUS_IN_PROGRESS);
+        $this->age($accepted, 'accepted_at', Duel::ACTIVE_TTL_DAYS + 1);
+        $this->age($inProgress, 'accepted_at', Duel::ACTIVE_TTL_DAYS - 1);
+
+        $rows = collect($this->actingAs($a)->getJson('/api/v1/me/duels')->json('duels'))->keyBy('id');
+
+        $this->assertSame(Duel::STATUS_EXPIRED, $rows[$accepted->id]['status']);
+        $this->assertSame(Duel::STATUS_IN_PROGRESS, $rows[$inProgress->id]['status']);
+        $this->assertSame(0, PointTransaction::whereIn('reason', [PointTransaction::REASON_DUEL_WON, PointTransaction::REASON_DUEL_LOST])->count());
+    }
+
+    public function test_an_expired_duel_cannot_be_accepted_or_run_and_frees_the_pair(): void
+    {
+        $gym = $this->gym();
+        $a = $this->member($gym);
+        $b = $this->member($gym);
+        $pending = $this->makeDuel($a, $b);
+        $this->age($pending, 'created_at', Duel::PENDING_TTL_DAYS + 1);
+
+        // No prior index call: the sweep must also run on the action itself.
+        $this->actingAs($b)->postJson("/api/v1/me/duels/{$pending->id}/accept")->assertStatus(422);
+
+        $running = $this->makeDuel($b, $a, Duel::STATUS_ACCEPTED);
+        $this->age($running, 'accepted_at', Duel::ACTIVE_TTL_DAYS + 1);
+        $this->actingAs($a)->postJson("/api/v1/me/duels/{$running->id}/run", $this->runPayload())->assertStatus(422);
+
+        // The lapsed duels no longer block a new challenge between the pair.
+        $this->actingAs($a)->postJson('/api/v1/me/duels', ['opponent_user_id' => $b->id, 'modality' => 'routine', 'stake' => 100])->assertCreated();
+    }
+
+    // -----------------------------------------------------------------
+    // the opponent is bounded by their own balance on accept (360 test)
+    // -----------------------------------------------------------------
+
+    public function test_an_opponent_without_enough_points_cannot_accept(): void
+    {
+        $gym = $this->gym();
+        $challenger = $this->member($gym, null, 500);
+        $broke = $this->member($gym, null, 0);
+        $short = $this->member($gym, null, 40);
+        $enough = $this->member($gym, null, 100);
+
+        foreach ([[$broke, 100], [$short, 100]] as [$opponent, $stake]) {
+            $duel = $this->makeDuel($challenger, $opponent, Duel::STATUS_PENDING, $stake);
+            $this->actingAs($opponent)->postJson("/api/v1/me/duels/{$duel->id}/accept")
+                ->assertStatus(422)->assertJsonValidationErrors('stake');
+            $this->assertSame(Duel::STATUS_PENDING, $duel->fresh()->status);
+        }
+
+        $ok = $this->makeDuel($challenger, $enough, Duel::STATUS_PENDING, 100);
+        $this->actingAs($enough)->postJson("/api/v1/me/duels/{$ok->id}/accept")->assertOk();
+    }
+
+    public function test_stakes_already_committed_reduce_what_can_be_accepted(): void
+    {
+        $gym = $this->gym();
+        $a = $this->member($gym, null, 500);
+        $b = $this->member($gym, null, 500);
+        $opponent = $this->member($gym, null, 100);
+
+        $first = $this->makeDuel($a, $opponent, Duel::STATUS_PENDING, 80);
+        $second = $this->makeDuel($b, $opponent, Duel::STATUS_PENDING, 80);
+
+        $this->actingAs($opponent)->postJson("/api/v1/me/duels/{$first->id}/accept")->assertOk();
+        // 100 points, 80 already committed to the first duel: 20 left, 80 requested.
+        $this->actingAs($opponent)->postJson("/api/v1/me/duels/{$second->id}/accept")->assertStatus(422);
+    }
+
+    public function test_a_loser_can_never_end_with_a_negative_balance_through_accept(): void
+    {
+        $gym = $this->gym();
+        $challenger = $this->member($gym, null, 200);
+        $opponent = $this->member($gym, null, 0);
+
+        $this->actingAs($challenger)->postJson('/api/v1/me/duels', ['opponent_user_id' => $opponent->id, 'modality' => 'routine', 'stake' => 50])->assertCreated();
+        $duel = Duel::latest('id')->first();
+        $this->actingAs($opponent)->postJson("/api/v1/me/duels/{$duel->id}/accept")->assertStatus(422);
+        $this->assertSame(0, (int) $opponent->pointTransactions()->sum('amount'));
+    }
 }

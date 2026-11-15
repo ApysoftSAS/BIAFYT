@@ -94,4 +94,19 @@ class ProductionHardeningTest extends TestCase
         $this->assertGreaterThan(0, Exercise::count());
         $this->assertSame(1, User::where('email', 'test@example.com')->count());
     }
+
+    public function test_non_numeric_route_ids_are_404_never_500(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([
+            ['get', '/api/v1/me/programs/abc'], ['patch', '/api/v1/me/programs/abc'], ['post', '/api/v1/me/programs/abc/import'],
+            ['delete', '/api/v1/me/program-days/abc'], ['get', '/api/v1/me/workouts/abc'], ['delete', '/api/v1/me/exercise-performances/abc'],
+            ['post', '/api/v1/me/coach-relationships/abc/accept'], ['delete', '/api/v1/me/gym-assignments/abc'], ['delete', '/api/v1/me/coach/notes/abc'],
+            ['get', '/api/v1/me/vouchers/abc'], ['delete', '/api/v1/me/coach/videos/abc'], ['post', '/api/v1/me/duels/abc/accept'],
+            ['get', '/api/v1/me/gym/abc/members'], ['get', '/api/v1/me/coach/athletes/abc'],
+        ] as [$method, $url]) {
+            $this->actingAs($user)->json(strtoupper($method), $url)->assertStatus(404);
+        }
+    }
 }

@@ -4,11 +4,11 @@ import appConfig from "../config/appConfig.js";
 
 /**
  * CUENTA (Gym App)
- * Identidad de la sesión + cerrar sesión. Todo real (contrato `/auth/*`).
- * El rol/permiso de Gym NO se muestra porque no existe todavía (D5 diferido).
+ * Identidad de la sesión + rol de gestión por gimnasio (gym_admin / staff) +
+ * cerrar sesión.
  */
 export default function Account() {
-  const { auth, actions } = useSession();
+  const { auth, gymAccess, actions } = useSession();
 
   return (
     <Screen title="Cuenta">
@@ -26,14 +26,15 @@ export default function Account() {
 
       <Card>
         <p className="micro">Rol en la organización</p>
-        <div className="row-between">
-          <span className="muted">Sin rol de Gym asignado</span>
-          <Badge tone="warning">Pronto</Badge>
+        <div className="stack-sm">
+          {gymAccess.gyms.map((g) => (
+            <div className="row-between" key={g.id}>
+              <span>{g.name}</span>
+              <Badge tone={g.role === "gym_admin" ? "accent" : "default"}>{g.role === "gym_admin" ? "administrador" : "staff"}</Badge>
+            </div>
+          ))}
         </div>
-        <p className="micro">
-          Los roles de Gym (staff, gym_admin) y la autorización organizacional se
-          implementan en la fase Coach/Gym.
-        </p>
+        <p className="micro">El rol gym_admin lo concede el equipo de BIAFYT; el de staff, el administrador del gimnasio.</p>
       </Card>
 
       <Card>

@@ -7,7 +7,7 @@
  *
  * Tras confirmar la sesión, se consulta `GET /me/gym-assignments` (solo
  * trae assignments ACTIVOS) y se derivan los gyms en los que el usuario es
- * `gym_admin` (`utils/gym.js#adminGymsFrom`). El `gym_id` NUNCA se toma de
+ * `gym_admin` o `staff` (`utils/gym.js#gymAccessFrom`). El `gym_id` NUNCA se toma de
  * LocalStorage ni se inventa: sale exclusivamente de esa respuesta del
  * backend. Sin `gym_admin` activo → estado `none` ("Sin acceso de Gym").
  *
@@ -44,8 +44,14 @@ import {
   apiCreateGymVoucher,
   apiRedeemGymVoucher,
   apiRevokeGymVoucher,
+  apiGetGymReport,
+  apiGetGymStaff,
+  apiBulkIssueGymVouchers,
+  apiGetGymVoucherCampaigns,
+  apiCreateGymVoucherCampaign,
+  apiCloseGymVoucherCampaign,
 } from "../utils/api.js";
-import { adminGymsFrom } from "../utils/gym.js";
+import { gymAccessFrom } from "../utils/gym.js";
 import { initialsOf } from "../utils/format.js";
 
 const SessionContext = createContext(null);
@@ -155,7 +161,7 @@ export function SessionProvider({ children }) {
     setGymAccess((s) => ({ ...s, status: s.gyms.length ? "ok" : "loading", error: "" }));
     try {
       const data = await apiGetGymAssignments(auth.token);
-      const gyms = adminGymsFrom(data.gym_assignments);
+      const gyms = gymAccessFrom(data.gym_assignments);
       setGymAccess((prev) => {
         if (gyms.length === 0) return { status: "none", gyms: [], activeGymId: null, error: "" };
         const keep = gyms.some((g) => g.id === prev.activeGymId) ? prev.activeGymId : gyms[0].id;
@@ -231,6 +237,12 @@ export function SessionProvider({ children }) {
       createVoucher: (payload) => runAuthed(() => apiCreateGymVoucher(auth.token, activeGymId, payload)),
       redeemVoucher: (id) => runAuthed(() => apiRedeemGymVoucher(auth.token, activeGymId, id)),
       revokeVoucher: (id) => runAuthed(() => apiRevokeGymVoucher(auth.token, activeGymId, id)),
+      bulkIssueVouchers: (payload) => runAuthed(() => apiBulkIssueGymVouchers(auth.token, activeGymId, payload)),
+      getCampaigns: () => runAuthed(() => apiGetGymVoucherCampaigns(auth.token, activeGymId)),
+      createCampaign: (payload) => runAuthed(() => apiCreateGymVoucherCampaign(auth.token, activeGymId, payload)),
+      closeCampaign: (id) => runAuthed(() => apiCloseGymVoucherCampaign(auth.token, activeGymId, id)),
+      getStaff: () => runAuthed(() => apiGetGymStaff(auth.token, activeGymId)),
+      getReport: (opts) => runAuthed(() => apiGetGymReport(auth.token, activeGymId, opts)),
       getBranches: async () => {
         const { gyms } = await apiGetGyms();
         return gyms.find((g) => g.id === activeGymId)?.branches ?? [];
@@ -244,6 +256,8 @@ export function SessionProvider({ children }) {
       auth,
       authChecking,
       gymAccess,
+      // Rol de gestión en el gym activo: "gym_admin" | "staff" | null.
+      activeRole: gymAccess.gyms.find((g) => g.id === gymAccess.activeGymId)?.role ?? null,
       actions: {
         registerRemote,
         loginRemote,

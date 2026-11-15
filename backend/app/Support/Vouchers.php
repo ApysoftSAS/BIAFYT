@@ -48,6 +48,21 @@ class Vouchers
     }
 
     /**
+     * A short, typeable code for a shared campaign (8 Crockford-base32
+     * chars). Uniqueness is checked by the caller against `voucher_campaigns`.
+     */
+    public static function generateCampaignCode(): string
+    {
+        $code = '';
+
+        for ($i = 0; $i < 8; $i++) {
+            $code .= self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)];
+        }
+
+        return $code;
+    }
+
+    /**
      * Test-only: replace the code generator with `$factory`, or pass null to
      * restore the default. Lets a test force a UNIQUE(code) collision and
      * assert the retry in issue(). Not used in production code.

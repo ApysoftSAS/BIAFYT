@@ -34,6 +34,18 @@ export function Card({ children, className = "", onClick, accent = false }) {
   );
 }
 
+export function Panel({ title, children, action }) {
+  return (
+    <section className="card">
+      <div className="row-between" style={{ marginBottom: 12 }}>
+        <h3>{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function Button({ children, variant = "primary", full = false, disabled, onClick, type = "button" }) {
   return (
     <button type={type} className={`btn btn-${variant} ${full ? "btn-full" : ""}`} disabled={disabled} onClick={onClick}>

@@ -18,11 +18,17 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Gym MVP (slice D-GYM): a `gym_admin` manages the `member` and `coach`
- * roles of their own gym, and reads a shadow-quality snapshot of a member's
- * training.
+ * Gym MVP (slice D-GYM): a `gym_admin` manages the `member`, `coach` and
+ * `staff` roles of their own gym, and reads a shadow-quality snapshot of a
+ * member's training.
  *
- * Every endpoint is gated by an active `GymAssignment(role=gym_admin)` for
+ * STAFF (operational role, e.g. reception) shares ONLY the member-facing
+ * endpoints — list members/coaches, look a user up, add/revoke MEMBERS, read
+ * a member's snapshot (`assertGymStaff`). Everything else (granting or
+ * revoking coach/staff, listing staff, branches, inventory, reports) stays
+ * gym_admin-only (`assertGymAdmin`).
+ *
+ * Every other endpoint is gated by an active `GymAssignment(role=gym_admin)` for
  * the authenticated user in the gym named by the `{gym}` route segment
  * (`assertGymAdmin`). The gym id is ONLY ever taken from the route, never
  * from the request body. A caller who is not an active gym_admin of that
@@ -41,7 +47,7 @@ class GymAdminController extends Controller
      */
     public function members(Request $request, int $gym): JsonResponse
     {
-        $this->assertGymAdmin($request, $gym);
+        $this->assertGymStaff($request, $gym);
 
         return response()->json([
             'members' => $this->assignmentsOf($gym, GymAssignment::ROLE_MEMBER),
@@ -53,7 +59,7 @@ class GymAdminController extends Controller
      */
     public function coaches(Request $request, int $gym): JsonResponse
     {
-        $this->assertGymAdmin($request, $gym);
+        $this->assertGymStaff($request, $gym);
 
         return response()->json([
             'coaches' => $this->assignmentsOf($gym, GymAssignment::ROLE_COACH),
@@ -66,9 +72,21 @@ class GymAdminController extends Controller
      * echoed back, and a miss is a 404 — nothing here is a general
      * `GET /users/{id}` lookup.
      */
-    public function userLookup(Request $request, int $gym): JsonResponse
+    /**
+     * Active `staff` assignments of the gym (gym_admin only).
+     */
+    public function staff(Request $request, int $gym): JsonResponse
     {
         $this->assertGymAdmin($request, $gym);
+
+        return response()->json([
+            'staff' => $this->assignmentsOf($gym, GymAssignment::ROLE_STAFF),
+        ]);
+    }
+
+    public function userLookup(Request $request, int $gym): JsonResponse
+    {
+        $this->assertGymStaff($request, $gym);
 
         $validated = $request->validate([
             'email' => ['required', 'string', 'email'],
@@ -98,17 +116,22 @@ class GymAdminController extends Controller
      */
     public function storeAssignment(Request $request, int $gym): JsonResponse
     {
-        $this->assertGymAdmin($request, $gym);
+        $callerRole = $this->assertGymStaff($request, $gym);
 
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
-            'role' => ['required', 'string', 'in:member,coach'],
+            'role' => ['required', 'string', 'in:member,coach,staff'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
         ]);
 
         $userId = (int) $validated['user_id'];
         $role = $validated['role'];
         $branchId = $validated['branch_id'] ?? null;
+
+        // Staff may only add members; coach/staff are granted by the gym_admin.
+        if ($callerRole !== GymAssignment::ROLE_GYM_ADMIN && $role !== GymAssignment::ROLE_MEMBER) {
+            throw ValidationException::withMessages(['role' => ['Staff can only add members.']]);
+        }
 
         if ($branchId !== null) {
             $branch = Branch::find($branchId);
@@ -180,11 +203,16 @@ class GymAdminController extends Controller
      */
     public function destroyAssignment(Request $request, int $gym, int $id): JsonResponse
     {
-        $this->assertGymAdmin($request, $gym);
+        $callerRole = $this->assertGymStaff($request, $gym);
+
+        // gym_admin revokes member/coach/staff; staff only members.
+        $revocable = $callerRole === GymAssignment::ROLE_GYM_ADMIN
+            ? [GymAssignment::ROLE_MEMBER, GymAssignment::ROLE_COACH, GymAssignment::ROLE_STAFF]
+            : [GymAssignment::ROLE_MEMBER];
 
         $assignment = GymAssignment::query()
             ->where('gym_id', $gym)
-            ->whereIn('role', [GymAssignment::ROLE_MEMBER, GymAssignment::ROLE_COACH])
+            ->whereIn('role', $revocable)
             ->where('status', GymAssignment::STATUS_ACTIVE)
             ->findOrFail($id);
 
@@ -201,7 +229,7 @@ class GymAdminController extends Controller
      */
     public function memberDetail(Request $request, int $gym, int $userId): JsonResponse
     {
-        $this->assertGymAdmin($request, $gym);
+        $this->assertGymStaff($request, $gym);
 
         $isActiveMember = GymAssignment::query()
             ->where('gym_id', $gym)
@@ -548,6 +576,24 @@ class GymAdminController extends Controller
             'name' => $branch->name,
             'members_count' => (int) ($branch->members_count ?? 0),
         ];
+    }
+
+    /**
+     * Abort with 404 unless the caller is an active `gym_admin` OR `staff` of
+     * the gym; returns the caller's role (gym_admin wins if they hold both).
+     */
+    private function assertGymStaff(Request $request, int $gym): string
+    {
+        $roles = GymAssignment::query()
+            ->where('user_id', $request->user()->id)
+            ->where('gym_id', $gym)
+            ->whereIn('role', [GymAssignment::ROLE_GYM_ADMIN, GymAssignment::ROLE_STAFF])
+            ->where('status', GymAssignment::STATUS_ACTIVE)
+            ->pluck('role');
+
+        abort_if($roles->isEmpty(), 404);
+
+        return $roles->contains(GymAssignment::ROLE_GYM_ADMIN) ? GymAssignment::ROLE_GYM_ADMIN : GymAssignment::ROLE_STAFF;
     }
 
     private function assertGymAdmin(Request $request, int $gym): void

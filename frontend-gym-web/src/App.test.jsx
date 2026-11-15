@@ -189,7 +189,7 @@ describe("App (Gym Web)", () => {
     expect(container.textContent).toContain("Pendiente");
   });
 
-  it("Sedes y Vouchers: listan datos reales del gym y el menú ya no los marca como próximos", async () => {
+  it("Sedes y Vouchers: listan datos reales del gym y el menú muestra todas las secciones de gestión", async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth: { token: "t", signedIn: true, user: { id: 1, name: "A" } } }));
     vi.stubGlobal("fetch", mockApi({
       "/auth/me": { user: { id: 1, name: "A", email: "a@x.test" } },
@@ -197,6 +197,7 @@ describe("App (Gym Web)", () => {
       "/me/gym/3/members": { members: [{ id: 4, user: { id: 9, name: "Ana Atleta" }, role: "member", branch: { id: 1, name: "Norte" }, since: null }] },
       "/me/gym/3/coaches": { coaches: [] },
       "/me/gym/3/branches": { branches: [{ id: 1, name: "Norte", members_count: 1 }] },
+      "/me/gym/3/voucher-campaigns": { campaigns: [] },
       "/me/gym/3/vouchers": { vouchers: [{ id: 2, code: "VCH-ABC", athlete: { id: 9, name: "Ana Atleta" }, title: "Clase gratis", benefit_type: "percent", benefit_value: 20, benefit_description: "x", status: "issued", expires_at: null }], next_cursor: null, has_more: false },
       "/gyms": { gyms: [{ id: 3, name: "KAIROS", branches: [{ id: 1, name: "Norte" }] }] },
     }));
@@ -208,7 +209,7 @@ describe("App (Gym Web)", () => {
 
     const nav = (label) => [...container.querySelectorAll(".gym-nav-item")].find((b) => b.textContent.includes(label));
     expect(nav("Sedes").disabled).toBe(false);
-    expect(nav("Staff").disabled).toBe(true);
+    expect(nav("Staff")).toBeUndefined(); // ya no es "próximamente": se gestiona dentro de Espacio
 
     await act(async () => nav("Sedes").click());
     await flush();
@@ -221,5 +222,155 @@ describe("App (Gym Web)", () => {
     expect(container.textContent).toContain("VCH-ABC");
     expect(container.textContent).toContain("20% de descuento");
     expect(container.textContent).toContain("Marcar usado");
+  });
+
+  it("Reportes: muestra cifras, horas pico y miembros sin asistir; vacío si no hay miembros", async () => {
+    const heat = Array.from({ length: 7 }, () => Array(24).fill(0));
+    heat[0][18] = 3;
+    heat[2][7] = 1;
+    const byHour = Array(24).fill(0);
+    byHour[18] = 3;
+    byHour[7] = 1;
+    const report = (members) => ({
+      period: { days: 30, from: "2026-10-17", to: "2026-11-15", timezone: "America/Bogota", stay_hours_estimate: 3, inactive_days: 14 },
+      branch_id: null,
+      totals: { members, coaches: 1, new_members: 0, active_members: members ? 2 : 0, inactive_members: members ? 1 : 0, check_ins: members ? 4 : 0, check_ins_today: 1, inside_now_estimate: 1, visits_per_active_member: 2, avg_stay_minutes: 75, stays_measured: 2, workouts: 3, avg_workout_minutes: 50 },
+      by_day: [{ date: "2026-11-14", check_ins: 1 }, { date: "2026-11-15", check_ins: 3 }],
+      by_hour: byHour,
+      by_weekday_hour: heat,
+      peak_hours: [{ hour: 18, check_ins: 3 }, { hour: 7, check_ins: 1 }],
+      by_branch: [{ id: 1, name: "Norte", members: 2, check_ins: 4, active_members: 2 }],
+      inactive_members: [{ user: { id: 9, name: "Pedro Ausente" }, branch: { id: 1, name: "Norte" }, last_check_in_date: null, days_since: null, member_since: "2026-08-22" }],
+      vouchers: { issued: 1, redeemed: 0, open: 1 },
+    });
+
+    for (const members of [2, 0]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth: { token: "t", signedIn: true, user: { id: 1, name: "A" } } }));
+      vi.stubGlobal("fetch", mockApi({
+        "/auth/me": { user: { id: 1, name: "A", email: "a@x.test" } },
+        "/me/gym-assignments": { gym_assignments: [{ id: 7, role: "gym_admin", gym: { id: 3, name: "KAIROS" }, branch: null }] },
+        "/me/gym/3/members": { members: [] },
+        "/me/gym/3/coaches": { coaches: [] },
+        "/me/gym/3/reports": { report: report(members) },
+        "/gyms": { gyms: [{ id: 3, name: "KAIROS", branches: [{ id: 1, name: "Norte" }] }] },
+      }));
+      const root = createRoot(container);
+      await act(async () => root.render(<App />));
+      await flush();
+      const nav = [...container.querySelectorAll(".gym-nav-item")].find((b) => b.textContent.includes("Reportes"));
+      await act(async () => nav.click());
+      await flush();
+      await flush();
+
+      if (members) {
+        expect(container.textContent).toContain("Horas pico");
+        expect(container.textContent).toContain("18:00 · 07:00");
+        expect(container.textContent).toContain("Pedro Ausente");
+        expect(container.textContent).toContain("Nunca");
+        expect(container.textContent).toContain("No es un conteo de acceso físico");
+        expect(container.querySelectorAll(".heat-cell").length).toBeGreaterThan(7 * 6);
+      } else {
+        expect(container.textContent).toContain("Aún no hay miembros");
+      }
+      await act(async () => root.unmount());
+      localStorage.clear();
+    }
+  });
+
+  it("Staff (recepción): solo ve Resumen, Espacio, Vouchers y Cuenta; no emite vouchers ni gestiona coaches", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth: { token: "t", signedIn: true, user: { id: 1, name: "Recepción" } } }));
+    vi.stubGlobal("fetch", mockApi({
+      "/auth/me": { user: { id: 1, name: "Recepción", email: "r@x.test" } },
+      "/me/gym-assignments": { gym_assignments: [{ id: 7, role: "staff", gym: { id: 3, name: "KAIROS" }, branch: null }] },
+      "/me/gym/3/members": { members: [{ id: 4, user: { id: 9, name: "Ana Atleta" }, role: "member", branch: { id: 1, name: "Norte" }, since: null }] },
+      "/me/gym/3/coaches": { coaches: [{ id: 5, user: { id: 8, name: "Carlos Coach" }, role: "coach", branch: null, since: null }] },
+      "/me/gym/3/vouchers": { vouchers: [{ id: 2, code: "VCH-ABC", athlete: { id: 9, name: "Ana Atleta" }, title: "Clase gratis", benefit_type: "text", benefit_value: null, benefit_description: "Una clase", status: "issued", expires_at: null }], next_cursor: null, has_more: false },
+      "/gyms": { gyms: [{ id: 3, name: "KAIROS", branches: [{ id: 1, name: "Norte" }] }] },
+    }));
+
+    await act(async () => {
+      createRoot(container).render(<App />);
+    });
+    await flush();
+
+    const labels = [...container.querySelectorAll(".gym-nav-item")].map((b) => b.textContent.trim());
+    expect(labels.some((l) => l.includes("Resumen"))).toBe(true);
+    expect(labels.some((l) => l.includes("Espacio"))).toBe(true);
+    expect(labels.some((l) => l.includes("Vouchers"))).toBe(true);
+    for (const hidden of ["Reportes", "Sedes", "Inventario"]) expect(labels.some((l) => l.includes(hidden))).toBe(false);
+
+    const nav = (label) => [...container.querySelectorAll(".gym-nav-item")].find((b) => b.textContent.includes(label));
+    await act(async () => nav("Espacio").click());
+    await flush();
+    expect(container.textContent).toContain("Ana Atleta");
+    expect(container.textContent).toContain("Carlos Coach");
+    expect(container.textContent).not.toContain("Staff (");
+    // Revocar solo en la tabla de miembros: 1 botón (el del coach no existe).
+    expect([...container.querySelectorAll("button")].filter((b) => b.textContent === "Revocar")).toHaveLength(1);
+
+    await act(async () => nav("Vouchers").click());
+    await flush();
+    expect(container.textContent).toContain("VCH-ABC");
+    expect(container.textContent).toContain("Marcar usado");
+    expect(container.textContent).not.toContain("Emitir voucher");
+    expect(container.textContent).not.toContain("Anular");
+  });
+
+  it("Vouchers: emisión masiva y código compartido con cupo", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ auth: { token: "t", signedIn: true, user: { id: 1, name: "A" } } }));
+    const calls = [];
+    const bodies = {
+      "/auth/me": { user: { id: 1, name: "A", email: "a@x.test" } },
+      "/me/gym-assignments": { gym_assignments: [{ id: 7, role: "gym_admin", gym: { id: 3, name: "KAIROS" }, branch: null }] },
+      "/me/gym/3/members": { members: [{ id: 4, user: { id: 9, name: "Ana Atleta" }, role: "member", branch: { id: 1, name: "Norte" }, since: null }] },
+      "/me/gym/3/vouchers/bulk": { issued: 1 },
+      "/me/gym/3/voucher-campaigns": { campaigns: [{ id: 5, code: "PRIMEROS", title: "Promo", benefit_type: "text", benefit_description: "Una clase", max_claims: 10, claimed: 3, expires_at: null, status: "active" }], campaign: { id: 6, code: "VERANO30" } },
+      "/me/gym/3/vouchers": { vouchers: [], next_cursor: null, has_more: false },
+      "/gyms": { gyms: [{ id: 3, name: "KAIROS", branches: [{ id: 1, name: "Norte" }] }] },
+    };
+    vi.stubGlobal("fetch", vi.fn(async (url, opts = {}) => {
+      const path = String(url).split("/api/v1").pop();
+      calls.push({ method: opts.method ?? "GET", path, body: opts.body ? JSON.parse(opts.body) : null });
+      const key = Object.keys(bodies).filter((k) => path.startsWith(k)).sort((x, y) => y.length - x.length)[0];
+      return { ok: Boolean(key), status: key ? 200 : 404, json: async () => (key ? bodies[key] : {}) };
+    }));
+
+    const setValue = (el, value) => {
+      const proto = el.tagName === "SELECT" ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
+      el.dispatchEvent(new Event(el.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+    };
+    const field = (label) => [...container.querySelectorAll("label.field")].find((l) => l.textContent.includes(label))?.querySelector("input,select");
+    const button = (text) => [...container.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith(text));
+
+    await act(async () => { createRoot(container).render(<App />); });
+    await flush();
+    await act(async () => [...container.querySelectorAll(".gym-nav-item")].find((b) => b.textContent.includes("Vouchers")).click());
+    await flush();
+    await flush();
+
+    // La tabla de códigos compartidos muestra canjes y cupo.
+    expect(container.textContent).toContain("PRIMEROS");
+    expect(container.textContent).toContain("3 / 10");
+
+    // A varios miembros → todos
+    await act(async () => button("A varios miembros").click());
+    await act(async () => { setValue(field("Título"), "Clase gratis"); setValue(field("Descripción"), "Una clase de cortesía"); setValue(field("Vigencia"), "30"); });
+    await act(async () => button("EMITIR A 1 MIEMBRO").click());
+    await flush();
+    const bulk = calls.find((c) => c.path.endsWith("/vouchers/bulk"));
+    expect(bulk.method).toBe("POST");
+    expect(bulk.body).toMatchObject({ scope: "all", title: "Clase gratis", valid_days: 30 });
+    expect(container.textContent).toContain("Se emitieron 1 vouchers");
+
+    // Código compartido con cupo
+    await act(async () => button("Código compartido").click());
+    await act(async () => { setValue(field("Título"), "Promo verano"); setValue(field("Descripción"), "Una clase"); setValue(field("Código"), "verano 30!"); setValue(field("Cupo"), "50"); });
+    await act(async () => button("CREAR CÓDIGO").click());
+    await flush();
+    const campaign = calls.find((c) => c.method === "POST" && c.path.endsWith("/voucher-campaigns"));
+    expect(campaign.body).toMatchObject({ code: "verano30", max_claims: 50, title: "Promo verano" });
+    expect(campaign.body).not.toHaveProperty("expires_at");
+    expect(container.textContent).toContain("Código creado: VERANO30");
   });
 });

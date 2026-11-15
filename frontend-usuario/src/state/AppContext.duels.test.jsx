@@ -39,6 +39,8 @@ function shape(d, uid) {
     opponent_submitted: d.runs.includes(otherId),
     your_run: null,
     their_run: null,
+    accepted_at: d.accepted_at ?? null,
+    finished_at: d.finished_at ?? null,
   };
 }
 
@@ -301,5 +303,47 @@ describe("AppContext — duelos reales", () => {
     harness = mountApp();
     await settle();
     expect(harness.app.duels).toEqual({ list: [], status: "idle" });
+  });
+
+  it("duelo VENCIDO (nadie lo completó) → devolución íntegra y un único aviso", async () => {
+    await signedIn();
+    const p0 = harness.app.state.identity.user.points;
+
+    let duel;
+    await actAsync(async () => { duel = await harness.app.actions.createDuel({ opponentUserId: RIVAL, modality: "routine", stake: 150 }); });
+    expect(harness.app.state.identity.user.points).toBe(p0 - 150);
+
+    // El backend lo vence por tiempo (barrido perezoso).
+    const row = duelsDb.find((d) => d.id === duel.id);
+    row.status = "expired";
+    row.finished_at = new Date().toISOString();
+    await actAsync(() => harness.app.actions.refreshDuels());
+    await settle();
+    await actAsync(() => harness.app.actions.refreshDuels());
+    await settle();
+
+    expect(harness.app.state.identity.user.points).toBe(p0);
+    expect(harness.app.state.identity.user.lockedPoints).toBe(0);
+    expect(harness.app.state.identity.user.duels).toEqual({ wins: 0, losses: 0 });
+    const notices = harness.app.state.identity.notifications.filter((n) => n.ref === `duel:${duel.id}:expired`);
+    expect(notices).toHaveLength(1);
+  });
+
+  it("como rival retado recibo UN aviso del reto aunque la lista se recargue varias veces", async () => {
+    const me = await signedIn("opp2@test.com");
+    duelsDb.push({
+      id: "d-incoming", status: "pending", modality: "routine", stake: 100,
+      challenger: { id: "u-challenger", name: "Ana Retadora" }, opponent: { id: me, name: "Me" },
+      winner_user_id: null, outcome: null, result: null, runs: [],
+    });
+
+    for (let i = 0; i < 3; i += 1) {
+      await actAsync(() => harness.app.actions.refreshDuels());
+      await settle();
+    }
+
+    const notices = harness.app.state.identity.notifications.filter((n) => n.ref === "duel:d-incoming:pending");
+    expect(notices).toHaveLength(1);
+    expect(notices[0].title).toContain("Ana Retadora");
   });
 });

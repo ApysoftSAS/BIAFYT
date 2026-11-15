@@ -4,22 +4,22 @@ import appConfig from "../config/appConfig.js";
 /**
  * BIAFYT GYM WEB — NAVEGACIÓN LATERAL (foundation)
  *
- * Todas las secciones de `primary` son funcionales. "Staff" sigue diferido
- * (sus capacidades no están definidas — BIAFYT_BUSINESS_CORE.md §6) y se
- * muestra `disabled` para no presentarlo como funcional.
+ * Todas las secciones son funcionales. Un `staff` (recepción) solo ve las que
+ * `canOpen` le permite; el backend responde 404 al resto igualmente.
  */
+import { canOpen } from "../utils/gym.js";
+
 const primary = [
   { id: "overview", label: "Resumen", icon: "▤", ready: true },
+  { id: "reports", label: "Reportes", icon: "◩", ready: true },
   { id: "workspace", label: "Espacio", icon: "▦", ready: true },
   { id: "branches", label: "Sedes", icon: "◫", ready: true },
   { id: "inventory", label: "Inventario", icon: "▥", ready: true },
   { id: "vouchers", label: "Vouchers", icon: "◇", ready: true },
 ];
 
-// Aún no implementado: el rol staff (capacidades por definir).
-const comingSoon = [{ label: "Staff", icon: "◈" }];
-
-export default function Sidebar({ current, onNavigate }) {
+export default function Sidebar({ current, onNavigate, role }) {
+  const items = primary.filter((it) => canOpen(role, it.id));
   return (
     <aside className="gym-sidebar">
       <div className="gym-sidebar-brand">
@@ -27,7 +27,7 @@ export default function Sidebar({ current, onNavigate }) {
       </div>
 
       <nav className="gym-nav">
-        {primary.map((it) => (
+        {items.map((it) => (
           <button
             key={it.id}
             className={`gym-nav-item ${current === it.id ? "gym-nav-active" : ""}`}
@@ -40,17 +40,6 @@ export default function Sidebar({ current, onNavigate }) {
         ))}
       </nav>
 
-      <p className="gym-sidebar-foot" style={{ marginTop: 18, marginBottom: 4 }}>
-        Próximamente
-      </p>
-      <nav className="gym-nav">
-        {comingSoon.map((it) => (
-          <button key={it.label} className="gym-nav-item" disabled aria-disabled="true">
-            <span className="gym-nav-icon">{it.icon}</span>
-            {it.label}
-          </button>
-        ))}
-      </nav>
 
       <button
         className={`gym-nav-item ${current === "account" ? "gym-nav-active" : ""}`}

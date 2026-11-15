@@ -6,11 +6,13 @@ use App\Http\Controllers\Api\V1\Admin\EquipmentRequestController as AdminEquipme
 use App\Http\Controllers\Api\V1\Admin\GymController as AdminGymController;
 use App\Http\Controllers\Api\V1\Admin\GymRegistrationRequestController as AdminGymRegistrationRequestController;
 use App\Http\Controllers\Api\V1\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Api\V1\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\CheckInController;
 use App\Http\Controllers\Api\V1\CoachAthleteController;
 use App\Http\Controllers\Api\V1\CoachAthleteRelationshipController;
+use App\Http\Controllers\Api\V1\CoachReportController;
 use App\Http\Controllers\Api\V1\CoachVideoController;
 use App\Http\Controllers\Api\V1\CoachVoucherController;
 use App\Http\Controllers\Api\V1\DuelController;
@@ -21,6 +23,8 @@ use App\Http\Controllers\Api\V1\GymAdminController;
 use App\Http\Controllers\Api\V1\GymAssignmentController;
 use App\Http\Controllers\Api\V1\GymController;
 use App\Http\Controllers\Api\V1\GymRegistrationRequestController;
+use App\Http\Controllers\Api\V1\GymReportController;
+use App\Http\Controllers\Api\V1\GymVoucherCampaignController;
 use App\Http\Controllers\Api\V1\GymVoucherController;
 use App\Http\Controllers\Api\V1\PointController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -29,6 +33,7 @@ use App\Http\Controllers\Api\V1\ProgramDayController;
 use App\Http\Controllers\Api\V1\ProgramExerciseController;
 use App\Http\Controllers\Api\V1\RewardController;
 use App\Http\Controllers\Api\V1\StreakController;
+use App\Http\Controllers\Api\V1\VoucherClaimController;
 use App\Http\Controllers\Api\V1\VoucherController;
 use App\Http\Controllers\Api\V1\WorkoutController;
 use App\Http\Controllers\Api\V1\WorkoutExerciseController;
@@ -81,6 +86,8 @@ Route::prefix('v1')->group(function () {
 
         // Coach video showcase (TikTok links): any signed-in user browses it;
         // only an active coach publishes.
+        // Coach report over their own active athletes.
+        Route::get('me/coach/report', [CoachReportController::class, 'show']);
         Route::get('coach-videos', [CoachVideoController::class, 'index']);
         Route::get('me/coach/videos', [CoachVideoController::class, 'mine']);
         Route::post('me/coach/videos', [CoachVideoController::class, 'store']);
@@ -123,6 +130,10 @@ Route::prefix('v1')->group(function () {
             Route::patch('me/gym/{gym}/branches/{branch}', [GymAdminController::class, 'updateBranch']);
             Route::delete('me/gym/{gym}/branches/{branch}', [GymAdminController::class, 'destroyBranch']);
 
+            // Administrative report (attendance, peak hours, inactive members).
+            Route::get('me/gym/{gym}/reports', [GymReportController::class, 'show']);
+
+            Route::get('me/gym/{gym}/staff', [GymAdminController::class, 'staff']);
             Route::get('me/gym/{gym}/members', [GymAdminController::class, 'members']);
             Route::get('me/gym/{gym}/coaches', [GymAdminController::class, 'coaches']);
             Route::get('me/gym/{gym}/user-lookup', [GymAdminController::class, 'userLookup']);
@@ -153,6 +164,12 @@ Route::prefix('v1')->group(function () {
             // BIAFYT does not process money or compute prices.
             Route::get('me/gym/{gym}/vouchers', [GymVoucherController::class, 'index']);
             Route::post('me/gym/{gym}/vouchers', [GymVoucherController::class, 'store']);
+            // Same voucher to many members at once (all / one branch / chosen),
+            // and shared-code campaigns with a cap ("the first 50").
+            Route::post('me/gym/{gym}/vouchers/bulk', [GymVoucherController::class, 'storeBulk']);
+            Route::get('me/gym/{gym}/voucher-campaigns', [GymVoucherCampaignController::class, 'index']);
+            Route::post('me/gym/{gym}/voucher-campaigns', [GymVoucherCampaignController::class, 'store']);
+            Route::post('me/gym/{gym}/voucher-campaigns/{campaign}/close', [GymVoucherCampaignController::class, 'close']);
             Route::get('me/gym/{gym}/vouchers/{voucher}', [GymVoucherController::class, 'show']);
             Route::post('me/gym/{gym}/vouchers/{voucher}/redeem', [GymVoucherController::class, 'redeem']);
             Route::post('me/gym/{gym}/vouchers/{voucher}/revoke', [GymVoucherController::class, 'revoke']);
@@ -246,6 +263,8 @@ Route::prefix('v1')->group(function () {
         // a coach (Fase Vouchers V1). Read-only for the athlete: issuing,
         // redeeming and revoking are the issuer's actions. Self-scoped.
         Route::get('me/vouchers', [VoucherController::class, 'index']);
+        // A member claims a shared code and gets a personal voucher (throttled: code guessing).
+        Route::post('me/voucher-campaigns/claim', [VoucherClaimController::class, 'store'])->middleware('throttle:20,1');
         Route::get('me/vouchers/{voucher}', [VoucherController::class, 'show'])->whereNumber('voucher');
 
         // Gym onboarding — applicant side. A user submits a request to
@@ -261,6 +280,9 @@ Route::prefix('v1')->group(function () {
         // discoverable). Approving a request creates Gym + main Branch +
         // active gym_admin GymAssignment atomically, and is idempotent.
         Route::prefix('admin')->whereNumber(['registrationRequest', 'equipment', 'equipmentRequest'])->group(function () {
+            // Platform-wide report (growth, engagement, gyms, review queues).
+            Route::get('reports', [AdminReportController::class, 'show']);
+
             Route::get('gym-registration-requests', [AdminGymRegistrationRequestController::class, 'index']);
             Route::get('gym-registration-requests/{registrationRequest}', [AdminGymRegistrationRequestController::class, 'show']);
             Route::post('gym-registration-requests/{registrationRequest}/approve', [AdminGymRegistrationRequestController::class, 'approve']);

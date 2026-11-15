@@ -1,6 +1,7 @@
 const items = [
   { id: "home", label: "Inicio", icon: "▣" },
   { id: "athletes", label: "Atletas", icon: "≡" },
+  { id: "reports", label: "Reportes", icon: "◩" },
   { id: "profile", label: "Perfil", icon: "◉" },
 ];
 

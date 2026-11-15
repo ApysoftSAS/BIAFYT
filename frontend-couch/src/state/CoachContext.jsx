@@ -25,6 +25,7 @@ import {
   apiGetMyVideos,
   apiCreateVideo,
   apiDeleteVideo,
+  apiGetCoachReport,
 } from "../utils/api.js";
 import { initialsOf } from "../utils/format.js";
 
@@ -289,6 +290,7 @@ export function CoachProvider({ children }) {
     [auth.token, runAuthed]
   );
   const deleteVideo = useCallback((id) => runAuthed(() => apiDeleteVideo(auth.token, id)), [auth.token, runAuthed]);
+  const getReport = useCallback((days) => runAuthed(() => apiGetCoachReport(auth.token, days)), [auth.token, runAuthed]);
 
   const value = useMemo(
     () => ({
@@ -320,6 +322,7 @@ export function CoachProvider({ children }) {
         getMyVideos,
         createVideo,
         deleteVideo,
+        getReport,
       },
     }),
     [
@@ -350,6 +353,7 @@ export function CoachProvider({ children }) {
       getMyVideos,
       createVideo,
       deleteVideo,
+      getReport,
     ]
   );
 

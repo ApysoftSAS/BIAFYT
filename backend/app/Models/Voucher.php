@@ -37,6 +37,7 @@ class Voucher extends Model
     public const BENEFIT_TYPES = [self::BENEFIT_PERCENT, self::BENEFIT_FIXED, self::BENEFIT_TEXT];
 
     protected $fillable = [
+        'campaign_id',
         'code',
         'gym_id',
         'coach_user_id',

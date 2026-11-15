@@ -24,6 +24,7 @@ import {
   apiApproveGymRegistrationRequest,
   apiRejectGymRegistrationRequest,
   apiGetAdminGyms,
+  apiGetPlatformReport,
   apiAdminListEquipment,
   apiAdminCreateEquipment,
   apiAdminUpdateEquipment,
@@ -186,6 +187,7 @@ export function SessionProvider({ children }) {
       approveRequest: (id, note) => runAuthed(() => apiApproveGymRegistrationRequest(auth.token, id, note)),
       rejectRequest: (id, note) => runAuthed(() => apiRejectGymRegistrationRequest(auth.token, id, note)),
       listGyms: () => runAuthed(() => apiGetAdminGyms(auth.token)),
+      getReport: (days) => runAuthed(() => apiGetPlatformReport(auth.token, days)),
 
       // Catálogo global de equipamiento.
       listEquipment: (active) => runAuthed(() => apiAdminListEquipment(auth.token, active)),
