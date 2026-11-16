@@ -21,7 +21,7 @@ export const STATE_KEYS = ["schemaVersion", "device", "auth", "identitySnapshots
 
 // `device`: sobrevive a cualquier cambio de identidad en este dispositivo.
 export const DEVICE_KEYS = ["coach", "settings", "rememberedEmail", "gyms", "prospects"];
-export const DEVICE_SETTINGS_KEYS = ["sound", "vibration", "gpsCompetitive"];
+export const DEVICE_SETTINGS_KEYS = ["sound", "vibration", "gpsCompetitive", "theme"];
 export const DEVICE_COACH_KEYS = ["hidden", "position"];
 
 // `auth`: sesión (token Sanctum + biometría + App Lock). No es identidad.

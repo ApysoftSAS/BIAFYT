@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { App as CapApp } from "@capacitor/app";
 import "./App.css";
 import { applyTheme } from "./theme/colors.js";
@@ -262,13 +262,20 @@ function Shell() {
   );
 }
 
-export default function App() {
-  useEffect(() => {
-    applyTheme();
-  }, []);
+/** Aplica el tema elegido (solo colores) antes del primer pintado y al cambiarlo. */
+function ThemeSync() {
+  const { state } = useApp();
+  const theme = state.device.settings.theme;
+  useLayoutEffect(() => {
+    applyTheme(document.documentElement, theme);
+  }, [theme]);
+  return null;
+}
 
+export default function App() {
   return (
     <AppProvider>
+      <ThemeSync />
       <Shell />
     </AppProvider>
   );

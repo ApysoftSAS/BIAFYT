@@ -5,90 +5,135 @@
  * Si cambia la marca, se cambia AQUÍ y en ningún otro lugar.
  * Ningún componente debe escribir hexadecimales.
  *
- * Paleta de marca (manual BIAFYT):
- *   #112B32  profundo    — fondo, base de todo
- *   #DCEFED  claro       — texto y superficies claras
- *   #65CDBD  turquesa    — acento, CTA, estados activos
+ * Estilo: glassmorphism cálido. Neutros cremas, casi negro para estados
+ * activos y tarjetas destacadas, y UN solo acento verde lima.
+ *
+ * Contraste (WCAG AA, medido sobre crema/arena/vidrio):
+ *   text 1A1A1A ≈ 15:1 · textSecondary ≥ 5.7:1 · textMuted ≥ 4.8:1
+ *   accentText ≥ 5.9:1 · blanco sobre ink 18.7:1 · ink sobre lima 12.8:1
+ * El lima (#A8E86C) NO se usa como color de texto sobre claro: para eso
+ * existe `accentText`. Como relleno (CTA, puntos, barras) sí.
  */
 
+import { deriveTheme, THEMABLE_COLOR_KEYS, THEMABLE_TOKEN_KEYS } from "./themes.js";
+
 export const palette = {
-  deep: "#112B32",
-  light: "#DCEFED",
-  aqua: "#65CDBD",
+  cream: "#F4F2EE",
+  sand: "#E9E6E0",
+  ink: "#111311",
+  lime: "#A8E86C",
+  white: "#FFFFFF",
 };
 
 export const colors = {
   // Base
-  primary: palette.aqua,
-  background: "#0A1A1F",
-  backgroundAlt: palette.deep,
-  surface: "rgba(220, 239, 237, 0.06)",
-  surfaceAlt: "rgba(220, 239, 237, 0.10)",
-  surfaceSolid: "#152F36",
-  surfaceInverse: palette.light,
-  overlay: "rgba(10, 26, 31, 0.72)",
+  primary: palette.lime,
+  background: palette.cream,
+  backgroundAlt: palette.sand,
+  surface: "rgba(255, 255, 255, 0.55)",
+  surfaceAlt: "rgba(255, 255, 255, 0.70)",
+  surfaceHover: "rgba(255, 255, 255, 0.92)",
+  surfaceSolid: "#FAF9F6", // reserva opaca si no hay backdrop-filter
+  surfaceChip: "rgba(26, 26, 26, 0.07)", // badges y chips: gris translúcido
+  surfaceInverse: palette.ink, // tarjetas destacadas y estados activos
+  overlay: "rgba(244, 242, 238, 0.72)", // barras flotantes (cabecera, nav)
+  scrim: "rgba(17, 19, 17, 0.42)", // fondo detrás de modales
 
   // Texto
-  text: palette.light,
-  textSecondary: "rgba(220, 239, 237, 0.62)",
-  textMuted: "rgba(220, 239, 237, 0.38)",
-  textOnPrimary: "#08171B",
-  textOnLight: palette.deep,
+  text: "#1A1A1A",
+  textSecondary: "rgba(26, 26, 26, 0.72)",
+  textMuted: "rgba(26, 26, 26, 0.64)",
+  textOnPrimary: palette.ink,
+  textOnLight: palette.ink,
+  textOnDark: palette.white,
+  textOnDarkSecondary: "rgba(255, 255, 255, 0.72)",
+  accentText: "#2E6A10", // verde profundo: el "lima" legible como texto
 
   // Bordes y luz
-  border: "rgba(220, 239, 237, 0.12)",
-  borderStrong: "rgba(220, 239, 237, 0.24)",
-  glassHighlight: "rgba(220, 239, 237, 0.28)",
-  glow: "rgba(101, 205, 189, 0.35)",
+  border: "rgba(255, 255, 255, 0.70)", // vidrio: borde blanco semitransparente
+  borderStrong: "rgba(26, 26, 26, 0.16)", // campos y separadores visibles
+  glassHighlight: "rgba(255, 255, 255, 0.85)",
+  glow: "rgba(168, 232, 108, 0.45)",
+  focusRing: palette.ink,
 
   // Acciones
-  accent: palette.aqua,
-  cta: palette.aqua,
-  ctaText: "#08171B",
-  active: palette.aqua,
-  inactive: "rgba(220, 239, 237, 0.40)",
+  accent: palette.lime,
+  cta: palette.lime,
+  ctaText: palette.ink,
+  active: palette.ink,
+  inactive: "rgba(26, 26, 26, 0.58)",
 
-  // Estados
-  success: "#65CDBD",
-  warning: "#E8B15A",
-  error: "#E8736A",
-  info: "#7FBFD6",
+  // Estados (tonos profundos: se usan también como texto)
+  success: "#2E6A10",
+  warning: "#8A5200",
+  error: "#B3261E",
+  info: "#2A6682",
 
   // Estados de validación de actividad
-  valid: "#65CDBD",
-  invalid: "#E8736A",
-  pending: "rgba(220, 239, 237, 0.50)",
+  valid: "#2E6A10",
+  invalid: "#B3261E",
+  pending: "rgba(26, 26, 26, 0.58)",
+
+  // Gráficos
+  bar: "#3A3E3A",
+  barTrack: "rgba(26, 26, 26, 0.07)",
+  barOnDark: "rgba(255, 255, 255, 0.22)",
+  barTrackOnDark: "rgba(255, 255, 255, 0.08)",
 };
 
-/** Tipografía, radios y capas de vidrio. */
+/** Tipografía, radios, vidrio, sombras y movimiento. */
 export const tokens = {
-  radius: "22px",
-  radiusSm: "14px",
-  radiusLg: "30px",
-  radiusPill: "999px",
+  radius: "24px", // tarjetas
+  radiusSm: "16px",
+  radiusLg: "30px", // paneles, hojas y modales
+  radiusPill: "999px", // botones, inputs, badges e ítems
   space: "16px",
 
-  fontDisplay: "'Outfit', 'Poppins', system-ui, sans-serif",
-  fontBody: "'Outfit', system-ui, -apple-system, sans-serif",
+  fontDisplay: "'Inter', 'Geist', system-ui, -apple-system, sans-serif",
+  fontBody: "'Inter', 'Geist', system-ui, -apple-system, sans-serif",
   trackingBrand: "0.34em",
-  trackingLabel: "0.16em",
+  trackingLabel: "0.12em",
 
-  // Liquid glass
-  glassBlur: "22px",
-  glassBlurStrong: "34px",
-  glassShadow: "0 18px 40px rgba(4, 14, 18, 0.55)",
-  glassInner: "inset 0 1px 0 rgba(220, 239, 237, 0.22)",
-  glowRing: "0 0 24px rgba(101, 205, 189, 0.30)",
+  // Vidrio cálido
+  glassBlur: "28px",
+  glassBlurStrong: "40px",
+  glassShadow: "0 24px 60px rgba(70, 58, 40, 0.14)",
+  glassInner: "inset 0 1px 0 rgba(255, 255, 255, 0.85)",
+  shadowLift: "0 12px 32px rgba(70, 58, 40, 0.18)",
+  glowRing: "0 0 0 4px rgba(168, 232, 108, 0.35)",
+
+  // Fondo: degradado cálido con destello lima difuminado
+  bgGradient:
+    "radial-gradient(60% 42% at 88% -4%, rgba(168, 232, 108, 0.55), transparent 70%), radial-gradient(50% 36% at 4% 98%, rgba(168, 232, 108, 0.22), transparent 70%), linear-gradient(165deg, #F4F2EE 0%, #ECE9E3 55%, #E4E1DA 100%)",
+
+  // Movimiento (spring suave)
+  motionFast: "250ms",
+  motionSlow: "400ms",
+  ease: "cubic-bezier(0.34, 1.32, 0.64, 1)",
 };
 
-/** Inyecta la paleta como variables CSS. */
-export function applyTheme(target = document.documentElement) {
-  Object.entries(colors).forEach(([key, value]) => {
+/**
+ * Inyecta la paleta como variables CSS. `theme` (opcional) es la elección del
+ * usuario: solo puede cambiar las claves de la lista blanca de themes.js; el
+ * vidrio cálido (superficies, blur, radios, sombras, bordes) siempre sale de
+ * `colors`/`tokens` tal cual.
+ */
+export function applyTheme(target = document.documentElement, theme) {
+  const derived = theme ? deriveTheme(theme) : null;
+  const pick = (base, over, allowed) => ({
+    ...base,
+    ...Object.fromEntries(Object.entries(over || {}).filter(([k]) => allowed.includes(k))),
+  });
+  Object.entries(pick(colors, derived?.colors, THEMABLE_COLOR_KEYS)).forEach(([key, value]) => {
     target.style.setProperty(`--c-${toKebab(key)}`, value);
   });
-  Object.entries(tokens).forEach(([key, value]) => {
+  Object.entries(pick(tokens, derived?.tokens, THEMABLE_TOKEN_KEYS)).forEach(([key, value]) => {
     target.style.setProperty(`--t-${toKebab(key)}`, value);
   });
+  // Barra de estado del navegador/PWA acorde al fondo elegido.
+  if (typeof document !== "undefined") {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", derived?.colors.background ?? colors.background);
+  }
 }
 
 function toKebab(key) {

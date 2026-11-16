@@ -43,6 +43,7 @@ import {
   apiLeaveGym,
 } from "../utils/api.js";
 import { initialsOf } from "../utils/format.js";
+import { DEFAULT_THEME, sanitizeTheme } from "../theme/themes.js";
 import { clearUser as clearOutboxUser, flush as flushOutbox, submit as submitOutbox } from "../utils/outbox.js";
 
 // Escrituras que se reintentan si no hay red (ver utils/outbox.js).
@@ -84,7 +85,7 @@ const ANONYMOUS_USER = { id: ANONYMOUS_ID, name: "", email: "" };
 // (nunca se resetea al cambiar de cuenta, nunca se guarda en identitySnapshots).
 export const DEFAULT_DEVICE_STATE = {
   coach: { hidden: false, position: null }, // posición libre del avatar flotante
-  settings: { sound: true, vibration: true, gpsCompetitive: true },
+  settings: { sound: true, vibration: true, gpsCompetitive: true, theme: DEFAULT_THEME }, // theme: solo colores (ver theme/themes.js)
   rememberedEmail: null, // solo UX de "recordar correo" — nunca representa sesión
   gyms: seedGyms,
   prospects: [],
@@ -273,7 +274,11 @@ function normalizeDevice(rawDevice) {
     ...DEFAULT_DEVICE_STATE,
     ...rawDevice,
     coach: { ...DEFAULT_DEVICE_STATE.coach, ...(rawDevice?.coach || {}) },
-    settings: { ...DEFAULT_DEVICE_STATE.settings, ...(rawDevice?.settings || {}) },
+    settings: {
+      ...DEFAULT_DEVICE_STATE.settings,
+      ...(rawDevice?.settings || {}),
+      theme: sanitizeTheme(rawDevice?.settings?.theme), // nunca se confía en lo guardado
+    },
     // Los gimnasios semilla siempre se recargan; se conservan los registrados por el usuario.
     gyms: [...seedGyms, ...(rawDevice?.gyms || []).filter((g) => g.userRegistered || g.fromApi)],
     prospects: rawDevice?.prospects || [],

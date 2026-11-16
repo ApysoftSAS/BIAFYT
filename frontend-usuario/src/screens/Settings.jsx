@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "../state/AppContext.jsx";
-import { Button, Card, Screen, Toggle, Modal } from "../components/UI.jsx";
+import { Button, Card, Screen, Tabs, Toggle, Modal } from "../components/UI.jsx";
+import { BASES, DEFAULT_THEME, INKS, PRESETS, sanitizeTheme } from "../theme/themes.js";
 import { focuses } from "../data/training.js";
 import { feedback } from "../utils/feedback.js";
 import { detectProvider, enroll, describeAuthError } from "../utils/biometric.js";
@@ -11,6 +12,10 @@ export default function Settings({ onBack, onNavigate }) {
   const s = state.identity.settings;
   const d = state.device.settings;
   const [confirmReset, setConfirmReset] = useState(false);
+  const theme = d.theme;
+  // Solo colores: el vidrio cálido no es una opción (ver theme/themes.js).
+  const setTheme = (next) => actions.updateDeviceSettings({ theme: sanitizeTheme({ ...theme, ...next }) });
+  const themeTabs = [...Object.entries(PRESETS).map(([id, p]) => ({ id, label: p.label })), { id: "custom", label: "Personalizado" }];
   const [bio, setBio] = useState({ provider: null, label: "Huella o rostro", real: false });
   const [bioError, setBioError] = useState("");
 
@@ -131,6 +136,64 @@ export default function Settings({ onBack, onNavigate }) {
               </option>
             ))}
           </select>
+        </Card>
+
+        {/* APARIENCIA */}
+        <Card>
+          <p className="micro">APARIENCIA</p>
+          <p className="muted">Elige tu paleta. El efecto de vidrio cálido es parte de BIAFYT y no se puede cambiar.</p>
+          <Tabs items={themeTabs} value={theme.preset} onChange={(id) => setTheme({ preset: id })} />
+          {theme.preset === "custom" && (
+            <div className="stack-sm">
+              <div className="row-between">
+                <span className="toggle-label">Acento</span>
+                <input
+                  type="color"
+                  className="color-input"
+                  aria-label="Color de acento"
+                  value={theme.accent}
+                  onChange={(e) => setTheme({ preset: "custom", accent: e.target.value })}
+                />
+              </div>
+              <div>
+                <p className="micro">FONDO</p>
+                <div className="swatch-row">
+                  {BASES.map((b) => (
+                    <button
+                      key={b.value}
+                      type="button"
+                      className={`swatch ${theme.base === b.value ? "swatch-on" : ""}`}
+                      style={{ "--sw": b.value }}
+                      title={b.label}
+                      aria-label={`Fondo ${b.label}`}
+                      aria-pressed={theme.base === b.value}
+                      onClick={() => setTheme({ preset: "custom", base: b.value })}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="micro">TINTA (ACTIVOS Y TARJETAS OSCURAS)</p>
+                <div className="swatch-row">
+                  {INKS.map((i) => (
+                    <button
+                      key={i.value}
+                      type="button"
+                      className={`swatch ${theme.ink === i.value ? "swatch-on" : ""}`}
+                      style={{ "--sw": i.value }}
+                      title={i.label}
+                      aria-label={`Tinta ${i.label}`}
+                      aria-pressed={theme.ink === i.value}
+                      onClick={() => setTheme({ preset: "custom", ink: i.value })}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <Button variant="ghost" full onClick={() => setTheme(DEFAULT_THEME)}>
+            RESTABLECER PALETA
+          </Button>
         </Card>
 
         {/* CUENTA Y ACCESO */}

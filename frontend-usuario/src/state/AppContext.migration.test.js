@@ -7,6 +7,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { STORAGE_KEY } from "../config/appConfig.js";
+import { DEFAULT_THEME } from "../theme/themes.js";
 import { ANONYMOUS_ID, DEFAULT_IDENTITY_STATE, load, migrateLegacyState } from "./AppContext.jsx";
 
 function legacyFixture() {
@@ -113,7 +114,7 @@ describe("AppContext — migración de LocalStorage legado (shape plano)", () =>
     const migrated = migrateLegacyState(legacyFixture());
 
     expect(migrated.device.coach).toEqual({ hidden: true, position: { x: 10, y: 20 } });
-    expect(migrated.device.settings).toEqual({ sound: false, vibration: true, gpsCompetitive: true });
+    expect(migrated.device.settings).toEqual({ sound: false, vibration: true, gpsCompetitive: true, theme: DEFAULT_THEME });
     expect(migrated.device.rememberedEmail).toBe("legacy@test.com");
     expect(migrated.device.gyms.some((g) => g.id === "gym-legacy-custom")).toBe(true);
     expect(migrated.device.prospects.length).toBe(1);
