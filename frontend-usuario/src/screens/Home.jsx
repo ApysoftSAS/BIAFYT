@@ -231,6 +231,10 @@ export default function Home({ onNavigate, gpsState }) {
               <strong>VIDEOS</strong>
               <p className="muted">Coaches en TikTok</p>
             </Card>
+            <Card onClick={() => onNavigate("exerciseLibrary")}>
+              <strong>BIBLIOTECA</strong>
+              <p className="muted">1.324 ejercicios explicados</p>
+            </Card>
             <Card onClick={() => onNavigate("vouchers")}>
               <strong>VOUCHERS</strong>
               <p className="muted">Tus beneficios y códigos</p>

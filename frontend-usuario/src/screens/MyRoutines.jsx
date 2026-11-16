@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "../state/AppContext.jsx";
-import { Badge, Button, Card, Field, Input, Modal, Screen } from "../components/UI.jsx";
+import { Badge, Button, Card, Field, Input, Modal, Screen, Tabs } from "../components/UI.jsx";
+import LibraryBrowser from "../components/LibraryBrowser.jsx";
+import { useLibrarySearch } from "../utils/useLibrarySearch.js";
+import { routineRowFromLibrary } from "../utils/exerciseLibrary.js";
 import Coach from "../components/Coach.jsx";
 import { focuses, buildRoutine, findFocus } from "../data/training.js";
 import { typeOf, setsFor } from "../utils/exercisePrescription.js";
@@ -51,6 +54,9 @@ export default function MyRoutines({ onBack, onTrain }) {
   const { state, actions, exerciseCatalog } = useApp();
   const [editing, setEditing] = useState(null);
   const [picker, setPicker] = useState(false);
+  const [pickerTab, setPickerTab] = useState("basic"); // basic = 22 del catálogo · library = 1.324 de consulta
+  // La biblioteca (chunk de 0,9 MB) solo se carga cuando se abre su pestaña.
+  const librarySearch = useLibrarySearch(picker && pickerTab === "library");
 
   // Rutinas creadas por un coach para este atleta (solo lectura). LocalStorage
   // sigue siendo la fuente de verdad de las rutinas propias; esto es la
@@ -257,6 +263,24 @@ export default function MyRoutines({ onBack, onTrain }) {
         </div>
 
         <Modal open={picker} title="BIBLIOTECA DE EJERCICIOS" onClose={() => setPicker(false)}>
+          <Tabs
+            items={[
+              { id: "basic", label: "Básicos" },
+              { id: "library", label: "Biblioteca" },
+            ]}
+            value={pickerTab}
+            onChange={setPickerTab}
+          />
+          {pickerTab === "library" && (
+            <LibraryBrowser
+              search={librarySearch}
+              onSelect={(entry) => {
+                setEditing((r) => ({ ...r, exercises: [...r.exercises, routineRowFromLibrary(entry)] }));
+                setPicker(false);
+              }}
+            />
+          )}
+          {pickerTab === "basic" && (
           <div className="stack-sm">
             {gymEquip && (
               <p className="micro muted">
@@ -281,6 +305,7 @@ export default function MyRoutines({ onBack, onTrain }) {
               </Card>
             ))}
           </div>
+          )}
         </Modal>
       </Screen>
     );

@@ -28,3 +28,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Animaciones (GIF) de la biblioteca de ejercicios: 127 MB, © Gym visual. Solo para ver
+# la demo en local (node scripts/build-exercise-library.mjs <dataset> --gifs); en producción
+# se sirven desde VITE_EXERCISE_GIF_BASE_URL. No se versionan.
+public/exercise-media/gif/

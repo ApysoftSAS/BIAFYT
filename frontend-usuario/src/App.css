@@ -1979,3 +1979,41 @@ button.card {
   border: none;
   border-radius: 50%;
 }
+
+/* ---------------- BIBLIOTECA DE EJERCICIOS ---------------- */
+.lib-thumb {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--t-radius-sm);
+  object-fit: cover;
+  background: var(--c-surface-solid);
+  border: 1px solid var(--c-border-strong);
+}
+.lib-media {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border-radius: var(--t-radius);
+  background: var(--c-surface-solid);
+  border: 1px solid var(--c-border);
+  box-shadow: var(--t-glass-inner), var(--t-glass-shadow);
+}
+.lib-media img {
+  width: min(100%, 260px);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--t-radius-sm);
+  object-fit: contain;
+}
+.lib-steps {
+  margin: 6px 0 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lib-steps li::marker {
+  color: var(--c-accent-text);
+  font-weight: 600;
+}

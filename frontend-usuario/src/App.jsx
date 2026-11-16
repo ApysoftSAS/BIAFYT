@@ -28,6 +28,7 @@ import Challenges from "./screens/Challenges.jsx";
 import News from "./screens/News.jsx";
 import Videos from "./screens/Videos.jsx";
 import Vouchers from "./screens/Vouchers.jsx";
+import ExerciseLibrary from "./screens/ExerciseLibrary.jsx";
 import Plans from "./screens/Plans.jsx";
 import Analytics from "./screens/Analytics.jsx";
 import { ACTIVITY_STATE } from "./utils/validation.js";
@@ -121,7 +122,7 @@ function Shell() {
         setScreen("profile");
       } else if (screen === "editProfile") {
         setScreen("profile");
-      } else if (["routines", "calendar", "challenges", "news", "prizes", "videos", "vouchers", "plans", "analytics"].includes(screen)) {
+      } else if (["routines", "calendar", "challenges", "news", "prizes", "videos", "vouchers", "plans", "analytics", "exerciseLibrary"].includes(screen)) {
         setScreen("home");
       } else if (screen === "home") {
         CapApp.exitApp();
@@ -229,6 +230,8 @@ function Shell() {
     content = <Videos onBack={() => setScreen("home")} />;
   } else if (screen === "vouchers") {
     content = <Vouchers onBack={() => setScreen("home")} />;
+  } else if (screen === "exerciseLibrary") {
+    content = <ExerciseLibrary onBack={() => setScreen("home")} />;
   } else if (screen === "plans") {
     content = <Plans onBack={() => setScreen("home")} />;
   } else if (screen === "analytics") {

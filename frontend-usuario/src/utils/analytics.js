@@ -46,6 +46,31 @@ const GROUP_BY_MUSCLE = {
   "Estabilizadores": "Core",
 };
 
+// Músculo objetivo de la biblioteca de ejercicios (`muscle` en la fila de rutina,
+// ver utils/exerciseLibrary.js) → grupo visual. Es la taxonomía que faltaba para
+// los movimientos libres. "cardiovascular system" no es un músculo: sin grupo.
+// serratus anterior se agrupa con Pecho (se entrena con empujes/pullovers).
+const GROUP_BY_LIBRARY_TARGET = {
+  pectorals: "Pecho",
+  "serratus anterior": "Pecho",
+  lats: "Espalda",
+  "upper back": "Espalda",
+  traps: "Espalda",
+  spine: "Espalda",
+  "levator scapulae": "Espalda",
+  quads: "Piernas",
+  hamstrings: "Piernas",
+  glutes: "Piernas",
+  calves: "Piernas",
+  abductors: "Piernas",
+  adductors: "Piernas",
+  delts: "Hombros",
+  biceps: "Brazos",
+  triceps: "Brazos",
+  forearms: "Brazos",
+  abs: "Core",
+};
+
 function findMachineByExerciseName(name, catalog) {
   const normalized = name.trim().toLowerCase();
   return catalog.find((m) => m.name.trim().toLowerCase() === normalized) || null;
@@ -67,8 +92,9 @@ export function routineMuscleGroups(exercises, machineCatalog = localMachines) {
   const counts = Object.fromEntries(MUSCLE_GROUPS.map((g) => [g, 0]));
   const unmatched = [];
   for (const ex of exercises) {
-    const machine = findMachineByExerciseName(ex.name, catalog);
-    const group = machine ? GROUP_BY_MUSCLE[machine.primary] : undefined;
+    // Si la fila trae el músculo de la biblioteca, manda; si no, se cruza por nombre con las máquinas.
+    const machine = ex.muscle ? null : findMachineByExerciseName(ex.name, catalog);
+    const group = ex.muscle ? GROUP_BY_LIBRARY_TARGET[ex.muscle] : machine ? GROUP_BY_MUSCLE[machine.primary] : undefined;
     if (group) counts[group] += 1;
     else unmatched.push(ex.name);
   }
