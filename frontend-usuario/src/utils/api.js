@@ -560,3 +560,21 @@ export function apiGetMyVouchers(token, cursor) {
 export function apiClaimVoucherCode(token, code) {
   return apiFetch("/me/voucher-campaigns/claim", { method: "POST", token, body: { code } });
 }
+
+/** GET /gyms → { gyms: [{ id, name, branches: [{ id, name }] }] } (200, público). Catálogo REAL de gimnasios. */
+export function apiGetGyms() {
+  return apiFetch("/gyms");
+}
+
+/**
+ * POST /me/gym-assignments { gym_id, branch_id } → { gym_assignment } (201, o 200 si reactiva una baja).
+ * El atleta se une como `member` (el rol nunca se envía). 422 si ya está en esa sede.
+ */
+export function apiJoinGym(token, { gymId, branchId }) {
+  return apiFetch("/me/gym-assignments", { method: "POST", token, body: { gym_id: gymId, branch_id: branchId } });
+}
+
+/** DELETE /me/gym-assignments/{id} → baja de MI membresía (queda inactive, no se borra). 404 si no es mía. */
+export function apiLeaveGym(token, assignmentId) {
+  return apiFetch(`/me/gym-assignments/${assignmentId}`, { method: "DELETE", token });
+}

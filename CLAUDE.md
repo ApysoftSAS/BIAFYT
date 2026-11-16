@@ -10,9 +10,10 @@ front-end apps plus one backend:
   streak** (`GET /me/streak`) and the **duel state** (`GET /me/duels`) come
   from the backend. Training, check-in state, challenges, rewards, calendar
   and ranking (mock) are still LocalStorage-based; Activity, Check-in,
-  Challenge and Reward are sent to the backend **best-effort** (no retry, no
-  offline queue — a failed POST means those points never reach the visible
-  balance). See `frontend-usuario/CLAUDE.md`.
+  Challenge and Reward are sent to the backend **best-effort** with an
+  offline outbox (`utils/outbox.js`: network/5xx failures are queued in
+  localStorage and retried in order; a 4xx is dropped). The gym is now the
+  REAL one when signed in (`GET /gyms` + `POST /me/gym-assignments`). See `frontend-usuario/CLAUDE.md`.
 - `frontend-couch/`: the Coach-role app. React 19 + Vite + Capacitor. Sanctum
   auth plus the coach↔athlete consent relationship (`CoachAthleteRelationship`),
   which is the authorization gate. Coach MVP (slice D-COACH, CLOSED): with a

@@ -11,6 +11,7 @@ use App\Models\GymAssignment;
 use App\Models\GymEquipment;
 use App\Models\User;
 use App\Support\AthleteSnapshot;
+use App\Support\Audit;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -167,6 +168,7 @@ class GymAdminController extends Controller
             }
 
             $existing->update(['status' => GymAssignment::STATUS_ACTIVE]);
+            Audit::record('gym.role_granted', $request->user()->id, ['gym_id' => $gym, 'target_user_id' => $userId, 'role' => $role, 'reactivated' => true]);
 
             return response()->json([
                 'assignment' => $this->mapAssignment($existing->load(['user', 'branch'])),
@@ -189,6 +191,8 @@ class GymAdminController extends Controller
                 'user_id' => ['This user already has that role in this gym/branch.'],
             ]);
         }
+
+        Audit::record('gym.role_granted', $request->user()->id, ['gym_id' => $gym, 'target_user_id' => $userId, 'role' => $role]);
 
         return response()->json([
             'assignment' => $this->mapAssignment($assignment->load(['user', 'branch'])),
@@ -217,6 +221,7 @@ class GymAdminController extends Controller
             ->findOrFail($id);
 
         $assignment->update(['status' => GymAssignment::STATUS_INACTIVE]);
+        Audit::record('gym.role_revoked', $request->user()->id, ['gym_id' => $gym, 'target_user_id' => $assignment->user_id, 'role' => $assignment->role]);
 
         return response()->json(null, 204);
     }

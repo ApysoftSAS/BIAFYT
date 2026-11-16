@@ -121,9 +121,17 @@ Notas:
   reutilizar la de local.
 - No hace falta `SANCTUM_STATEFUL_DOMAINS` ni `SESSION_DOMAIN`: la auth es
   100 % por token en `Authorization: Bearer`, sin cookies.
-- **CORS y caducidad de tokens se dejan como están** (decisión de Fase 2):
-  `allowed_origins: ['*']` (aceptable con Bearer, sin cookies) y tokens Sanctum
-  `expiration: null`. Endurecer ambos es trabajo posterior.
+- **CORS y caducidad de tokens (endurecidos 2026-11-16):** `config/cors.php`
+  solo admite los orígenes de `CORS_ALLOWED_ORIGINS` (lista separada por comas;
+  por defecto solo `localhost` de desarrollo y Capacitor). **En producción
+  DEBES definirla** con los dominios reales de las 4 apps web, o el navegador
+  bloqueará las llamadas. Los tokens vencen a los `AUTH_TOKEN_TTL_DAYS` días
+  (30 por defecto); las apps cierran sesión ante el 401.
+- **Auditoría y privacidad (2026-11-16):** `audit_logs` guarda eventos de
+  seguridad sin PII. Programa `php artisan audit:prune --days=365` (cron
+  diario o semanal) para la retención. Derechos del titular:
+  `GET /me/data-export` y `DELETE /me/account`. Plan completo y estado por
+  control (SOC 2 / ISO 27001 / 27701): `SECURITY_HARDENING_PLAN.md`.
 - **Hardening F1/F2 ya está en el código** (`bootstrap/app.php` +
   `AppServiceProvider`), no requiere variables de entorno:
   - **F1** — rate limit del grupo `api`: **120 req/min** por usuario o IP
@@ -138,7 +146,7 @@ Notas:
 ```bash
 cd backend
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # aplica las 41 migraciones en la DB vacía
+php artisan migrate --force          # aplica las 43 migraciones en la DB vacía
 php artisan config:cache             # verificado: cachea sin error
 php artisan route:cache              # verificado: cachea sin error
 php artisan view:cache

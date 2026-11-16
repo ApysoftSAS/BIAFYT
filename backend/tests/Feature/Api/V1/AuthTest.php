@@ -194,4 +194,40 @@ class AuthTest extends TestCase
         $meAfterLogout = $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/v1/auth/me');
         $meAfterLogout->assertStatus(401);
     }
+
+    public function test_token_expires_after_configured_days(): void
+    {
+        $this->postJson('/api/v1/auth/register', ['name' => 'Ana', 'email' => 'ttl@example.com', 'password' => 'password123']);
+        $token = $this->postJson('/api/v1/auth/login', ['email' => 'ttl@example.com', 'password' => 'password123'])->json('token');
+
+        $this->travel(config('auth.token_ttl_days') - 1)->days();
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/v1/auth/me')->assertOk();
+
+        $this->travel(2)->days();
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/v1/auth/me')->assertStatus(401);
+    }
+
+    public function test_cors_only_allows_configured_origins(): void
+    {
+        $ok = $this->withHeader('Origin', 'http://localhost:5175')->getJson('/api/v1/gyms');
+        $this->assertSame('http://localhost:5175', $ok->headers->get('Access-Control-Allow-Origin'));
+
+        $bad = $this->withHeader('Origin', 'https://evil.example')->getJson('/api/v1/gyms');
+        $this->assertNull($bad->headers->get('Access-Control-Allow-Origin'));
+    }
+
+    public function test_register_rejects_weak_password(): void
+    {
+        $this->postJson('/api/v1/auth/register', ['name' => 'Ana', 'email' => 'weak@example.com', 'password' => 'abcdefgh'])
+            ->assertStatus(422)->assertJsonValidationErrors('password');
+    }
+
+    public function test_api_responses_carry_security_headers(): void
+    {
+        $r = $this->getJson('/api/v1/gyms');
+        $this->assertSame('nosniff', $r->headers->get('X-Content-Type-Options'));
+        $this->assertSame('DENY', $r->headers->get('X-Frame-Options'));
+    }
 }

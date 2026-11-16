@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // auth endpoints (routes/api.php) still governs register/login
         // independently.
         $middleware->throttleApi();
+
+        // Cabeceras de seguridad en todas las respuestas de la API.
+        $middleware->api(append: [SecurityHeaders::class]);
 
         // F2 (part 1): this is an API-only application with no `login` route.
         // The framework's default guest redirect points the Authenticate

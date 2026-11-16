@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\CheckIn;
+use App\Models\GymAssignment;
 use App\Models\PointTransaction;
 use App\Support\PointRules;
 use Illuminate\Database\QueryException;
@@ -50,6 +52,7 @@ class CheckInController extends Controller
     {
         $user = $request->user();
         $today = Carbon::now()->toDateString();
+        [$gymId, $branchId] = $this->resolveWhere($request);
 
         if ($user->checkIns()->where('check_in_date', $today)->exists()) {
             throw ValidationException::withMessages([
@@ -58,8 +61,10 @@ class CheckInController extends Controller
         }
 
         try {
-            $checkIn = DB::transaction(function () use ($user, $today) {
+            $checkIn = DB::transaction(function () use ($user, $today, $gymId, $branchId) {
                 $checkIn = $user->checkIns()->create([
+                    'gym_id' => $gymId,
+                    'branch_id' => $branchId,
                     'check_in_date' => $today,
                     'checked_in_at' => Carbon::now(),
                 ]);
@@ -85,6 +90,55 @@ class CheckInController extends Controller
         return response()->json([
             'check_in' => $this->mapCheckIn($checkIn),
         ], 201);
+    }
+
+    /**
+     * Gimnasio/sede del check-in. Opcionales en el cuerpo: si vienen deben ser
+     * un gimnasio donde el usuario es miembro ACTIVO (y una sede de ese
+     * gimnasio); si no vienen y el usuario tiene una sola membresía activa, se
+     * usa esa. Sin membresías (o ambiguo) queda sin gimnasio.
+     *
+     * @return array{0: ?int, 1: ?int}
+     */
+    private function resolveWhere(Request $request): array
+    {
+        $data = $request->validate([
+            'gym_id' => ['nullable', 'integer'],
+            'branch_id' => ['nullable', 'integer'],
+        ]);
+
+        $memberships = GymAssignment::where('user_id', $request->user()->id)
+            ->where('role', GymAssignment::ROLE_MEMBER)
+            ->where('status', GymAssignment::STATUS_ACTIVE)
+            ->get(['gym_id', 'branch_id']);
+
+        $gymId = $data['gym_id'] ?? null;
+        $branchId = $data['branch_id'] ?? null;
+
+        if ($gymId === null) {
+            if ($branchId !== null) {
+                throw ValidationException::withMessages(['branch_id' => ['Send gym_id together with branch_id.']]);
+            }
+
+            return $memberships->unique('gym_id')->count() === 1
+                ? [$memberships[0]->gym_id, $memberships[0]->branch_id]
+                : [null, null];
+        }
+
+        $membership = $memberships->firstWhere('gym_id', $gymId);
+        if (! $membership) {
+            throw ValidationException::withMessages(['gym_id' => ['You are not an active member of this gym.']]);
+        }
+
+        if ($branchId === null) {
+            return [$gymId, $membership->branch_id];
+        }
+
+        if (! Branch::where('id', $branchId)->where('gym_id', $gymId)->exists()) {
+            throw ValidationException::withMessages(['branch_id' => ['This branch does not belong to the gym.']]);
+        }
+
+        return [$gymId, $branchId];
     }
 
     /**
@@ -126,6 +180,8 @@ class CheckInController extends Controller
             'check_in_date' => $checkIn->check_in_date,
             'checked_in_at' => $checkIn->checked_in_at,
             'checked_out_at' => $checkIn->checked_out_at,
+            'gym_id' => $checkIn->gym_id,
+            'branch_id' => $checkIn->branch_id,
             'created_at' => $checkIn->created_at,
         ];
     }

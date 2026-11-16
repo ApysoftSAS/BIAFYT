@@ -14,9 +14,9 @@ use Illuminate\Support\Collection;
 /**
  * Administrative report of one gym (Gym Web → Reportes).
  *
- * IMPORTANT ABOUT THE DATA. A `check_ins` row records WHO checked in and
- * WHEN, never WHERE (no gym/branch column — the user app still uses mock
- * gyms). So attendance is ATTRIBUTED to the gym through membership: a
+ * IMPORTANT ABOUT THE DATA. A `check_ins` row records WHO and WHEN, and since
+ * migration #42 optionally WHERE (`gym_id`/`branch_id`). Rows with a gym of
+ * ANOTHER gym are excluded; legacy rows without a gym are ATTRIBUTED to the gym through membership: a
  * check-in counts for this gym when its author is an ACTIVE `member` of it
  * and the check-in is on/after the day the assignment was created. A person
  * who is a member of two gyms counts in both. Only people who use the
@@ -65,6 +65,7 @@ class GymReport
             ? collect()
             : CheckIn::whereIn('user_id', $memberIds)
                 ->where('checked_in_at', '>=', $fromDb)
+                ->where(fn ($q) => $q->whereNull('gym_id')->orWhere('gym_id', $gymId))
                 ->get(['user_id', 'checked_in_at', 'checked_out_at'])
                 ->map(fn (CheckIn $c) => [
                     'user_id' => $c->user_id,

@@ -114,4 +114,11 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    | Vida del token de acceso (días). Al vencer, la API responde 401 y la app
+    | pide iniciar sesión de nuevo.
+    */
+
+    'token_ttl_days' => (int) env('AUTH_TOKEN_TTL_DAYS', 30),
+
 ];

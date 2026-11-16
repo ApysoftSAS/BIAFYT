@@ -85,7 +85,7 @@ class CheckInApiTest extends TestCase
 
         $response->assertStatus(201);
         $checkIn = $response->json('check_in');
-        $this->assertSame(['id', 'check_in_date', 'checked_in_at', 'checked_out_at', 'created_at'], array_keys($checkIn));
+        $this->assertSame(['id', 'check_in_date', 'checked_in_at', 'checked_out_at', 'gym_id', 'branch_id', 'created_at'], array_keys($checkIn));
         $this->assertArrayNotHasKey('user_id', $checkIn);
         $this->assertStringNotContainsString('idempotency_key', $response->getContent());
     }

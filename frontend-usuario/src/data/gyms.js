@@ -121,3 +121,24 @@ export function findBranch(gym, branchId) {
   if (!gym) return null;
   return gym.branches.find((b) => b.id === branchId) || null;
 }
+
+/**
+ * Gimnasio REAL del backend (`GET /gyms`) con la forma del mock, para que todo
+ * lo que ya lee `state.device.gyms` (Home, Perfil, Check-in…) siga igual.
+ * `id`/`apiId`: el id local lleva prefijo para no chocar con los del mock.
+ */
+export function fromApiGym(g) {
+  return {
+    id: `gym-api-${g.id}`,
+    apiId: g.id,
+    fromApi: true,
+    name: g.name,
+    country: "",
+    city: "",
+    address: "",
+    status: GYM_STATUS.CLIENT,
+    official: true,
+    members: 0,
+    branches: (g.branches ?? []).map((b) => ({ id: `branch-api-${b.id}`, apiId: b.id, name: b.name, address: "", members: 0 })),
+  };
+}

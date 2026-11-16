@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\ActivityController;
 use App\Http\Controllers\Api\V1\Admin\EquipmentController as AdminEquipmentController;
 use App\Http\Controllers\Api\V1\Admin\EquipmentRequestController as AdminEquipmentRequestController;
@@ -61,6 +62,10 @@ Route::prefix('v1')->group(function () {
     Route::get('gyms/{gym}/equipment', [EquipmentController::class, 'gymIndex'])->whereNumber('gym');
 
     Route::middleware('auth:sanctum')->group(function () {
+        // Derechos del titular (ISO 27701): acceso/portabilidad y supresión.
+        Route::get('me/data-export', [AccountController::class, 'export'])->middleware('throttle:3,60');
+        Route::delete('me/account', [AccountController::class, 'destroy'])->middleware('throttle:3,60');
+
         Route::get('profile', [ProfileController::class, 'show']);
         Route::patch('profile', [ProfileController::class, 'update']);
 

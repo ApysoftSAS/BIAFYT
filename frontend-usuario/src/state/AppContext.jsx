@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { STORAGE_KEY } from "../config/appConfig.js";
-import { gyms as seedGyms, GYM_STATUS, findGym, findBranch } from "../data/gyms.js";
+import { gyms as seedGyms, GYM_STATUS, findGym, findBranch, fromApiGym } from "../data/gyms.js";
 import { communityUsers } from "../data/users.js";
 import { duelNotice } from "../utils/duelNotices.js";
 import { buildRoutine } from "../data/training.js";
@@ -38,8 +38,23 @@ import {
   apiRejectDuel,
   apiCancelDuel,
   apiSubmitDuelRun,
+  apiGetGymAssignments,
+  apiJoinGym,
+  apiLeaveGym,
 } from "../utils/api.js";
 import { initialsOf } from "../utils/format.js";
+import { clearUser as clearOutboxUser, flush as flushOutbox, submit as submitOutbox } from "../utils/outbox.js";
+
+// Escrituras que se reintentan si no hay red (ver utils/outbox.js).
+const OUTBOX_RUNNERS = {
+  activity: (t, b) => apiCreateActivity(t, b),
+  checkin: (t) => apiCheckIn(t),
+  checkout: (t) => apiCheckOut(t),
+  challenge: (t, b) => apiClaimChallenge(t, b.challengeId, b.dayKey),
+  reward: (t, b) => apiClaimReward(t, b.prizeId, b.uid),
+};
+const outboxRun = (token) => (job) => OUTBOX_RUNNERS[job.kind](token, job.body);
+const clientUid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `c-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 const AppContext = createContext(null);
 
@@ -260,7 +275,7 @@ function normalizeDevice(rawDevice) {
     coach: { ...DEFAULT_DEVICE_STATE.coach, ...(rawDevice?.coach || {}) },
     settings: { ...DEFAULT_DEVICE_STATE.settings, ...(rawDevice?.settings || {}) },
     // Los gimnasios semilla siempre se recargan; se conservan los registrados por el usuario.
-    gyms: [...seedGyms, ...(rawDevice?.gyms || []).filter((g) => g.userRegistered)],
+    gyms: [...seedGyms, ...(rawDevice?.gyms || []).filter((g) => g.userRegistered || g.fromApi)],
     prospects: rawDevice?.prospects || [],
   };
 }
@@ -639,6 +654,83 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  /** Agrega (o actualiza) un gimnasio REAL del backend en `device.gyms` y devuelve sus ids locales. */
+  const upsertApiGym = useCallback((apiGym, apiBranchId) => {
+    const gym = fromApiGym(apiGym);
+    const branch = gym.branches.find((b) => b.apiId === apiBranchId) ?? gym.branches[0] ?? null;
+    setState((prev) => ({
+      ...prev,
+      device: { ...prev.device, gyms: [...prev.device.gyms.filter((g) => g.id !== gym.id), gym] },
+    }));
+    return { gymId: gym.id, branchId: branch?.id ?? null };
+  }, []);
+
+  /**
+   * Unirse a una sede REAL (`POST /me/gym-assignments`). Primero da de baja mis
+   * otras membresías de atleta (un atleta, un gimnasio activo), luego se une.
+   * Relanza el error para que la pantalla lo muestre; el estado local solo
+   * cambia si el backend aceptó.
+   */
+  const joinGym = useCallback(
+    async (apiGym, apiBranch) => {
+      const token = state.auth.token;
+      const { gym_assignments: current = [] } = await apiGetGymAssignments(token);
+      const mine = current.filter((a) => a.role === "member");
+      const already = mine.some((a) => a.gym.id === apiGym.id && a.branch?.id === apiBranch.id);
+      if (!already) {
+        await apiJoinGym(token, { gymId: apiGym.id, branchId: apiBranch.id });
+      }
+      for (const a of mine) {
+        if (a.gym.id !== apiGym.id || a.branch?.id !== apiBranch.id) await apiLeaveGym(token, a.id);
+      }
+      const ids = upsertApiGym({ ...apiGym, branches: [apiBranch] }, apiBranch.id);
+      selectGym(ids.gymId, ids.branchId);
+    },
+    [state.auth.token, upsertApiGym, selectGym]
+  );
+
+  // COLA DE ENVÍO: reintenta lo que no pudo salir (sin red / 5xx) al abrir la
+  // app con sesión, al volver la conexión y cada minuto. Si algo salió, se
+  // revalidan saldo y racha (siguen siendo autoritativos del backend).
+  const outboxUserId = state.identity.user.id ?? "local";
+  useEffect(() => {
+    const token = state.auth.signedIn ? state.auth.token : null;
+    if (!token) return undefined;
+    const run = () =>
+      flushOutbox(outboxUserId, outboxRun(token)).then((n) => {
+        if (n > 0) {
+          loadPoints(token);
+          loadStreak(token);
+        }
+      });
+    run();
+    const timer = setInterval(run, 60000);
+    window.addEventListener("online", run);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", run);
+    };
+  }, [state.auth.signedIn, state.auth.token, outboxUserId, loadPoints, loadStreak]);
+
+  // El backend manda: al iniciar sesión, si el atleta ya es miembro activo de una
+  // sede real (p. ej. lo dio de alta el gimnasio), esa pasa a ser su gimnasio.
+  useEffect(() => {
+    const token = state.auth.signedIn ? state.auth.token : null;
+    if (!token) return undefined;
+    let cancelled = false;
+    apiGetGymAssignments(token)
+      .then((d) => {
+        const a = (d?.gym_assignments ?? []).find((x) => x.role === "member" && x.branch);
+        if (cancelled || !a) return;
+        const ids = upsertApiGym({ id: a.gym.id, name: a.gym.name, branches: [a.branch] }, a.branch.id);
+        selectGym(ids.gymId, ids.branchId);
+      })
+      .catch(() => {}); // sin red: se conserva el gimnasio local
+    return () => {
+      cancelled = true;
+    };
+  }, [state.auth.signedIn, state.auth.token, upsertApiGym, selectGym]);
+
   /** Registro de un gimnasio inexistente → queda como PROSPECTO (puntos 55, 56). */
   const registerGym = useCallback((form) => {
     const gymId = `gym-user-${Date.now()}`;
@@ -771,19 +863,20 @@ export function AppProvider({ children }) {
         },
       }));
       // Copia sombra best-effort en el backend (auditoría). NUNCA afecta al
-      // estado local ni al flujo de Workout.jsx: si falla, se traga en
-      // silencio, sin reintento ni cola. El monto de puntos lo calcula el
+      // estado local ni al flujo de Workout.jsx: si falla, se encola (utils/outbox.js) y se reintenta; si es un 4xx se traga en
+      // silencio. El monto de puntos lo calcula el
       // backend; aquí no se envía points/amount/user_id.
       const token = state.auth.token;
       if (token) {
         // Tras el POST (que acredita `workout_completed` en el ledger), se
         // revalida el saldo autoritativo — no se suma el monto localmente.
-        apiCreateActivity(token, buildActivityPayload(activity, new Date(), state.identity.user.streak))
-          .then(() => loadPoints(token))
+        const body = { ...buildActivityPayload(activity, new Date(), state.identity.user.streak), client_uid: clientUid() };
+        submitOutbox(state.identity.user.id ?? "local", "activity", body, outboxRun(token))
+          .then((r) => !r.queued && loadPoints(token))
           .catch(() => {});
       }
     },
-    [patch, state.auth.token, state.identity.user.streak, loadPoints]
+    [patch, state.auth.token, state.identity.user.id, state.identity.user.streak, loadPoints]
   );
 
   const checkIn = useCallback((info) => {
@@ -813,20 +906,21 @@ export function AppProvider({ children }) {
     });
     // Copia sombra best-effort: solo si HOY no había check-in y hay sesión.
     // El backend acredita el `checkin` (+20) en su ledger; la racha NO se
-    // envía. Un fallo se traga en silencio (sin reintento ni cola).
+    // envía. Sin red se reintenta (outbox); un 4xx se descarta.
     // Tras registrar el check-in, se refresca la racha canónica (el backend
     // pudo haberla incrementado); si el POST o el GET fallan, la UI muestra
     // "—" — nunca el valor local.
     if (!alreadyCheckedInToday && state.auth.token) {
-      apiCheckIn(state.auth.token)
-        .then(() => {
+      submitOutbox(state.identity.user.id ?? "local", "checkin", {}, outboxRun(state.auth.token))
+        .then((r) => {
+          if (r.queued) return;
           loadStreak(state.auth.token);
           loadPoints(state.auth.token); // el `checkin` (+20) ya está en el ledger
         })
         .catch(() => {});
     }
     return !already;
-  }, [state.identity.lastCheckIn, state.auth.token, loadStreak, loadPoints]);
+  }, [state.identity.lastCheckIn, state.identity.user.id, state.auth.token, loadStreak, loadPoints]);
 
   // El check-out usa la misma fuente de verdad que el check-in
   // (lastCheckIn/lastCheckOut): solo puede salir quien ya entró hoy y
@@ -855,10 +949,10 @@ export function AppProvider({ children }) {
     });
     // Copia sombra best-effort: solo si el check-out local procede y hay sesión.
     if (canCheckOutNow && state.auth.token) {
-      apiCheckOut(state.auth.token).catch(() => {});
+      submitOutbox(state.identity.user.id ?? "local", "checkout", {}, outboxRun(state.auth.token)).catch(() => {});
     }
     return didCheckOut;
-  }, [state.identity.lastCheckIn, state.identity.lastCheckOut, state.auth.token]);
+  }, [state.identity.lastCheckIn, state.identity.lastCheckOut, state.identity.user.id, state.auth.token]);
 
   // ------------------------------------------------------------------
   // PLANES (Fase 1 — adquisición simulada, sin pagos reales)
@@ -1134,14 +1228,14 @@ export function AppProvider({ children }) {
     // envía cost/points/user_id. Si falla (incluido 422 por saldo
     // insuficiente en el ledger backend, p.ej. por puntos de duelos que el
     // backend no conoce todavía), se traga en silencio: no afecta al canje
-    // local ya concedido, sin reintento ni cola.
+    // local ya concedido; sin red se reintenta (outbox).
     if (canClaim && state.auth.token) {
-      apiClaimReward(state.auth.token, prize.id, uid)
-        .then(() => loadPoints(state.auth.token))
+      submitOutbox(state.identity.user.id ?? "local", "reward", { prizeId: prize.id, uid }, outboxRun(state.auth.token))
+        .then((r) => !r.queued && loadPoints(state.auth.token))
         .catch(() => {});
     }
     return ok;
-  }, [points.status, points.balance, state.auth.token, loadPoints]);
+  }, [points.status, points.balance, state.identity.user.id, state.auth.token, loadPoints]);
 
   // Solo canjea si el reward sigue "Disponible": impide que el mismo
   // código de canje se use dos veces.
@@ -1299,6 +1393,15 @@ export function AppProvider({ children }) {
   const signOut = useCallback(async () => {
     const token = state.auth.token;
     if (token) {
+      // Privacidad (ISO 27701): se intenta enviar lo pendiente con el token aún
+      // vigente y luego se borra lo que quede, para no dejar datos del usuario
+      // en el dispositivo tras cerrar sesión.
+      try {
+        await flushOutbox(outboxUserId, outboxRun(token));
+      } catch {
+        /* sin red: se descarta igual */
+      }
+      clearOutboxUser(outboxUserId);
       try {
         await apiLogout(token);
       } catch {
@@ -1306,7 +1409,7 @@ export function AppProvider({ children }) {
       }
     }
     patch(endSession);
-  }, [patch, state.auth.token]);
+  }, [patch, state.auth.token, outboxUserId]);
 
   /** App Lock: bloquea la app (al ir a background) sin tocar signedIn. */
   const lockApp = useCallback(
@@ -1498,14 +1601,14 @@ export function AppProvider({ children }) {
     });
     // Copia sombra best-effort: solo si el claim local ocurrió y hay sesión.
     // El backend calcula el reward desde sus reglas; aquí NO se envía
-    // reward/points. Un fallo se traga en silencio (sin reintento ni cola).
+    // reward/points. Sin red se reintenta (outbox); un 4xx se descarta.
     if (!alreadyClaimed && state.auth.token) {
-      apiClaimChallenge(state.auth.token, challengeId, dayKey)
-        .then(() => loadPoints(state.auth.token))
+      submitOutbox(state.identity.user.id ?? "local", "challenge", { challengeId, dayKey }, outboxRun(state.auth.token))
+        .then((r) => !r.queued && loadPoints(state.auth.token))
         .catch(() => {});
     }
     return granted;
-  }, [state.identity.challengeProgress, state.auth.token, loadPoints]);
+  }, [state.identity.challengeProgress, state.identity.user.id, state.auth.token, loadPoints]);
 
   // ------------------------------------------------------------------
   // NOTICIAS Y PROMOCIONES
@@ -1626,6 +1729,7 @@ export function AppProvider({ children }) {
       refreshPoints: () => loadPoints(state.auth.token),
       loadMorePoints,
       selectGym,
+      joinGym,
       registerGym,
       completeOnboarding,
       updateDeviceSettings,

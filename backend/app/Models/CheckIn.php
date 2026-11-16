@@ -22,6 +22,8 @@ class CheckIn extends Model
      */
     protected $fillable = [
         'user_id',
+        'gym_id',
+        'branch_id',
         'check_in_date',
         'checked_in_at',
         'checked_out_at',

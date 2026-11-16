@@ -31,9 +31,11 @@ class ProductionHardeningTest extends TestCase
     {
         // routes/api.php puts throttle:6,1 on register + login; F1's group
         // throttle (120/min) must not loosen that.
+        // Un correo distinto por intento: aquí se prueba el límite por IP, no el
+        // bloqueo por cuenta (cubierto en SecurityHardeningTest).
         for ($i = 0; $i < 6; $i++) {
             $this->postJson('/api/v1/auth/login', [
-                'email' => 'nobody@example.test',
+                'email' => "nobody{$i}@example.test",
                 'password' => 'wrong-password',
             ])->assertStatus(422);
         }

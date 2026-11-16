@@ -1,0 +1,55 @@
+# CI de BIAFYT: pruebas, estilo y auditoría de dependencias en cada push/PR.
+# Evidencia para SOC 2 CC7.1/CC8.1 e ISO 27001 A.8.8/A.8.28 (ver SECURITY_HARDENING_PLAN.md).
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+  schedule:
+    - cron: "0 12 * * 1" # lunes: reaudita dependencias aunque no haya cambios
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: vendor/bin/pint --test
+      - run: php artisan test
+      - run: composer audit
+
+  frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [frontend-usuario, frontend-couch, frontend-gym, frontend-gym-web, frontend-admin]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test --if-present
+      - run: npm run build
+      # Solo dependencias de producción: lo que viaja a los usuarios. Las de desarrollo
+      # (p. ej. @capacitor/assets → sharp, solo genera iconos) se revisan aparte.
+      - run: npm audit --omit=dev --audit-level=high

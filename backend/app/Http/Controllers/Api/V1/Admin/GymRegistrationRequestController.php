@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Gym;
 use App\Models\GymAssignment;
 use App\Models\GymRegistrationRequest;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -130,6 +131,8 @@ class GymRegistrationRequestController extends Controller
             return $found;
         });
 
+        Audit::record('admin.gym_request_approved', $request->user()->id, ['request_id' => $registrationRequest, 'gym_id' => $result->gym_id]);
+
         return response()->json([
             'gym_registration_request' => $this->mapRequest($result->load(['applicant', 'gym'])),
         ]);
@@ -163,6 +166,8 @@ class GymRegistrationRequestController extends Controller
                 'reviewed_at' => now(),
             ]);
         }
+
+        Audit::record('admin.gym_request_rejected', $request->user()->id, ['request_id' => $registrationRequest]);
 
         return response()->json([
             'gym_registration_request' => $this->mapRequest($found->load(['applicant', 'gym'])),
